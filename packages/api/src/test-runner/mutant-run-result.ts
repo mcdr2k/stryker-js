@@ -43,3 +43,20 @@ export interface ErrorMutantRunResult {
   status: MutantRunStatus.Error;
   errorMessage: string;
 }
+
+export enum SimultaneousMutantRunStatus {
+  Valid = 'valid',
+  Invalid = 'invalid',
+}
+
+export type SimultaneousMutantRunResult = InvalidSimultaneousMutantRunResult | ValidSimultaneousMutantRunResult;
+
+export interface ValidSimultaneousMutantRunResult {
+  status: SimultaneousMutantRunStatus.Valid;
+  results: MutantRunResult[];
+}
+
+export interface InvalidSimultaneousMutantRunResult {
+  status: SimultaneousMutantRunStatus.Invalid;
+  invalidResult: ErrorMutantRunResult | TimeoutMutantRunResult;
+}
