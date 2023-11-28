@@ -3,13 +3,13 @@ import { StrykerOptions } from '@stryker-mutator/api/core';
 import { Logger, LoggerFactoryMethod } from '@stryker-mutator/api/logging';
 import { commonTokens, Injector, PluginContext, tokens } from '@stryker-mutator/api/plugin';
 import {
-  TestRunner,
   DryRunOptions,
   MutantRunOptions,
   DryRunResult,
   MutantRunResult,
   toMutantRunResult,
   TestRunnerCapabilities,
+  SingularTestRunner,
 } from '@stryker-mutator/api/test-runner';
 import type { Config } from 'karma';
 
@@ -28,7 +28,7 @@ export function createKarmaTestRunner(injector: Injector<PluginContext>): KarmaT
 
 const MIN_KARMA_VERSION = '6.3.0';
 
-export class KarmaTestRunner implements TestRunner {
+export class KarmaTestRunner extends SingularTestRunner {
   private exitPromise: Promise<number> | undefined;
   private runConfig!: Config;
   private isDisposed = false;
@@ -40,6 +40,7 @@ export class KarmaTestRunner implements TestRunner {
     options: StrykerOptions,
     private readonly starter: ProjectStarter,
   ) {
+    super();
     const setup = this.loadSetup(options);
     configureKarma.setGlobals({
       getLogger,

@@ -4,7 +4,6 @@ import { commonTokens, tokens } from '@stryker-mutator/api/plugin';
 import { I, escapeRegExp } from '@stryker-mutator/util';
 
 import {
-  TestRunner,
   DryRunResult,
   DryRunOptions,
   MutantRunOptions,
@@ -15,6 +14,7 @@ import {
   determineHitLimitReached,
   TestRunnerCapabilities,
   MutantActivation,
+  SingularTestRunner,
 } from '@stryker-mutator/api/test-runner';
 
 import { Context, RootHookObject, Suite } from 'mocha';
@@ -25,7 +25,7 @@ import * as pluginTokens from './plugin-tokens.js';
 import { MochaOptionsLoader } from './mocha-options-loader.js';
 import { MochaAdapter } from './mocha-adapter.js';
 
-export class MochaTestRunner implements TestRunner {
+export class MochaTestRunner extends SingularTestRunner {
   private mocha!: Mocha;
   private readonly instrumenterContext: InstrumenterContext;
   private originalGrep?: string;
@@ -46,6 +46,7 @@ export class MochaTestRunner implements TestRunner {
     private readonly mochaAdapter: I<MochaAdapter>,
     globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__',
   ) {
+    super();
     StrykerMochaReporter.log = log;
     this.instrumenterContext = global[globalNamespace] ?? (global[globalNamespace] = {});
   }

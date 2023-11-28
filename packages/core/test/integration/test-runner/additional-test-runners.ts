@@ -15,6 +15,8 @@ import {
   MutantRunOptions,
   TestRunnerCapabilities,
   toMutantRunResult,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import { factory } from '@stryker-mutator/test-helpers';
 
@@ -26,6 +28,9 @@ abstract class NotImplementedTestRunner implements TestRunner {
     throw new Error('Method not implemented.');
   }
   public mutantRun(_options: MutantRunOptions): Promise<MutantRunResult> {
+    throw new Error('Method not implemented.');
+  }
+  public simultaneousMutantRun(_options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
     throw new Error('Method not implemented.');
   }
 }

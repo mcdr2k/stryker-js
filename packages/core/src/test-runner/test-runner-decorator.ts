@@ -1,4 +1,13 @@
-import { TestRunner, DryRunOptions, MutantRunOptions, MutantRunResult, DryRunResult, TestRunnerCapabilities } from '@stryker-mutator/api/test-runner';
+import {
+  TestRunner,
+  DryRunOptions,
+  MutantRunOptions,
+  MutantRunResult,
+  DryRunResult,
+  TestRunnerCapabilities,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
+} from '@stryker-mutator/api/test-runner';
 
 import { ResourceDecorator } from '../concurrent/index.js';
 
@@ -11,5 +20,8 @@ export class TestRunnerDecorator extends ResourceDecorator<TestRunner> {
   }
   public mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
     return this.innerResource.mutantRun(options);
+  }
+  public simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    return this.innerResource.simultaneousMutantRun(options);
   }
 }

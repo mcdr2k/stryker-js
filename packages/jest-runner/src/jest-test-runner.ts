@@ -17,6 +17,7 @@ import {
   BaseTestResult,
   TestRunnerCapabilities,
   determineHitLimitReached,
+  SingularTestRunner,
 } from '@stryker-mutator/api/test-runner';
 import { escapeRegExp, notEmpty, requireResolve } from '@stryker-mutator/util';
 import type * as jest from '@jest/types';
@@ -58,7 +59,7 @@ export function createJestTestRunnerFactory(namespace: typeof INSTRUMENTER_CONST
 
 export const jestTestRunnerFactory = createJestTestRunnerFactory();
 
-export class JestTestRunner implements TestRunner {
+export class JestTestRunner extends SingularTestRunner {
   private jestConfig!: jest.Config.InitialOptions;
   private readonly jestOptions: JestOptions;
   private readonly enableFindRelatedTests!: boolean;
@@ -80,6 +81,7 @@ export class JestTestRunner implements TestRunner {
     private readonly jestWrapper: JestWrapper,
     private readonly globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__',
   ) {
+    super();
     this.jestOptions = (options as JestRunnerOptionsWithStrykerOptions).jest;
     // Get enableFindRelatedTests from stryker jest options or default to true
     this.enableFindRelatedTests = this.jestOptions.enableFindRelatedTests;

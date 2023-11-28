@@ -9,16 +9,18 @@ import {
   DryRunStatus,
   MutantRunStatus,
   TestRunnerCapabilities,
+  SingularTestRunner,
 } from '@stryker-mutator/api/test-runner';
 import { errorToString } from '@stryker-mutator/util';
 
 import { coreTokens, PluginCreator } from '../di/index.js';
 
-export class ChildProcessTestRunnerWorker implements TestRunner {
+export class ChildProcessTestRunnerWorker extends SingularTestRunner {
   private readonly underlyingTestRunner: TestRunner;
 
   public static inject = tokens(commonTokens.options, coreTokens.pluginCreator);
   constructor({ testRunner }: StrykerOptions, pluginCreator: PluginCreator) {
+    super();
     this.underlyingTestRunner = pluginCreator.create(PluginKind.TestRunner, testRunner);
   }
 

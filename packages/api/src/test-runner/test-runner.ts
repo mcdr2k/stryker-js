@@ -1,6 +1,6 @@
-import { DryRunOptions, MutantRunOptions, SimultaneousMutantRunOptions } from './run-options.js';
+import { DryRunOptions, MutantRunOptions, SimultaneousMutantRunOptions, regularToSimultaneousMutantRunOptions } from './run-options.js';
 import { DryRunResult } from './dry-run-result.js';
-import { MutantRunResult, SimultaneousMutantRunResult } from './mutant-run-result.js';
+import { MutantRunResult, SimultaneousMutantRunResult, SimultaneousMutantRunStatus } from './mutant-run-result.js';
 import { TestRunnerCapabilities } from './test-runner-capabilities.js';
 
 export interface TestRunner {
@@ -10,4 +10,49 @@ export interface TestRunner {
   mutantRun(options: MutantRunOptions): Promise<MutantRunResult>;
   simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult>;
   dispose?(): Promise<void>;
+}
+
+abstract class AbstractTestRunner {
+  public abstract capabilities(): Promise<TestRunnerCapabilities> | TestRunnerCapabilities;
+  public abstract dryRun(options: DryRunOptions): Promise<DryRunResult>;
+  public abstract mutantRun(options: MutantRunOptions): Promise<MutantRunResult>;
+  public abstract simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult>;
+}
+
+/**
+ * Abstract class that implements {@link TestRunner} with a default implementation for {@link TestRunner.simultaneousMutantRun}.
+ * This default implementation makes use of {@link mutantRun} and will throw an error if the provided options contains a group
+ * of an order other than 1. If one needs to override this default implementation, then it is more suitable to implement the
+ * {@link TestRunner} interface directly. See also {@link SimultaneousTestRunner}.
+ */
+export abstract class SingularTestRunner extends AbstractTestRunner {
+  public override async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    if (options.mutantRunOptions.length !== 1) {
+      throw new Error(
+        `Test runner does not support simultaneous mutation testing but was provided a group of order ${options.mutantRunOptions.length}`,
+      );
+    }
+    // enforce reload environment of the individual mutant to be the same as in options (due to reload-environment-decorator)
+    // might want to enforce it within the decorator instead
+    const [singleMutantOptions] = options.mutantRunOptions;
+    singleMutantOptions.reloadEnvironment = options.reloadEnvironment;
+    const result = await this.mutantRun(singleMutantOptions);
+    return { status: SimultaneousMutantRunStatus.Valid, results: [result] };
+  }
+}
+
+/**
+ * Abstract class that implements {@link TestRunner} with a default implementation for {@link TestRunner.mutantRun}.
+ * This default implementation makes use of {@link mutantRun}. If one needs to override this default implementation,
+ * then it is more suitable to implement the {@link TestRunner} interface directly. See also {@link SingularTestRunner}.
+ */
+export abstract class SimultaneousTestRunner extends AbstractTestRunner {
+  public override async mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
+    const simultaneousResults = await this.simultaneousMutantRun(regularToSimultaneousMutantRunOptions(options));
+    if (simultaneousResults.status === SimultaneousMutantRunStatus.Valid) {
+      return simultaneousResults.results[0];
+    } else {
+      return simultaneousResults.invalidResult;
+    }
+  }
 }

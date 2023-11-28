@@ -12,8 +12,8 @@ import {
   DryRunStatus,
   MutantRunOptions,
   MutantRunResult,
+  SingularTestRunner,
   TestResult,
-  TestRunner,
   TestRunnerCapabilities,
   TestStatus,
   TimeoutDryRunResult,
@@ -54,7 +54,7 @@ interface TapRunOptions {
   dryRun?: boolean;
 }
 
-export class TapTestRunner implements TestRunner {
+export class TapTestRunner extends SingularTestRunner {
   public static inject = tokens(commonTokens.options, commonTokens.logger, pluginTokens.globalNamespace);
   private testFiles: string[] = [];
   private static readonly hookFile = normalizeFileName(path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'setup', 'hook.cjs'));
@@ -65,6 +65,7 @@ export class TapTestRunner implements TestRunner {
     private readonly log: Logger,
     private readonly globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__',
   ) {
+    super();
     this.options = options as TapRunnerOptionsWithStrykerOptions;
   }
 

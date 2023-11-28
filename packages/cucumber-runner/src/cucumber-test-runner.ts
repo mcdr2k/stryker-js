@@ -18,8 +18,8 @@ import {
   FailedTestResult,
   MutantRunOptions,
   MutantRunResult,
+  SingularTestRunner,
   TestResult,
-  TestRunner,
   TestRunnerCapabilities,
   TestStatus,
   toMutantRunResult,
@@ -81,7 +81,7 @@ interface ResolvedConfiguration {
   runConfiguration: IRunOptions;
 }
 
-export class CucumberTestRunner implements TestRunner {
+export class CucumberTestRunner extends SingularTestRunner {
   public static inject = tokens(
     commonTokens.logger,
     commonTokens.options,
@@ -97,6 +97,7 @@ export class CucumberTestRunner implements TestRunner {
     options: StrykerOptions,
     globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__',
   ) {
+    super();
     guardForCucumberJSVersion();
     this.options = (options as CucumberRunnerWithStrykerOptions).cucumber;
     this.instrumenterContext =

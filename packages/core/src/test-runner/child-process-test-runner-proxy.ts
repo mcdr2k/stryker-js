@@ -2,7 +2,14 @@ import { URL } from 'url';
 
 import { FileDescriptions, StrykerOptions } from '@stryker-mutator/api/core';
 import { Logger } from '@stryker-mutator/api/logging';
-import { TestRunner, DryRunOptions, MutantRunOptions, MutantRunResult, DryRunResult, TestRunnerCapabilities } from '@stryker-mutator/api/test-runner';
+import {
+  DryRunOptions,
+  MutantRunOptions,
+  MutantRunResult,
+  DryRunResult,
+  TestRunnerCapabilities,
+  SingularTestRunner,
+} from '@stryker-mutator/api/test-runner';
 import { ExpirableTask } from '@stryker-mutator/util';
 
 import { ChildProcessCrashedError } from '../child-proxy/child-process-crashed-error.js';
@@ -18,7 +25,7 @@ const MAX_WAIT_FOR_DISPOSE = 2000;
 /**
  * Runs the given test runner in a child process and forwards reports about test results
  */
-export class ChildProcessTestRunnerProxy implements TestRunner {
+export class ChildProcessTestRunnerProxy extends SingularTestRunner {
   private readonly worker: ChildProcessProxy<ChildProcessTestRunnerWorker>;
 
   constructor(
@@ -30,6 +37,7 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
     private readonly log: Logger,
     idGenerator: IdGenerator,
   ) {
+    super();
     this.worker = ChildProcessProxy.create(
       new URL('./child-process-test-runner-worker.js', import.meta.url).toString(),
       loggingContext,
