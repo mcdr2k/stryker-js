@@ -3,7 +3,6 @@ import os from 'os';
 
 import { StrykerOptions, CommandRunnerOptions, INSTRUMENTER_CONSTANTS } from '@stryker-mutator/api/core';
 import {
-  TestRunner,
   TestStatus,
   MutantRunOptions,
   DryRunResult,

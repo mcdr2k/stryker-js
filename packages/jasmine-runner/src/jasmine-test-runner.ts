@@ -5,7 +5,6 @@ import { commonTokens, tokens, Injector, PluginContext } from '@stryker-mutator/
 import {
   DryRunStatus,
   TestResult,
-  TestRunner,
   MutantRunOptions,
   DryRunResult,
   MutantRunResult,

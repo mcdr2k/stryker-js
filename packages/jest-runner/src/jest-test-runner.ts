@@ -5,7 +5,6 @@ import { StrykerOptions, INSTRUMENTER_CONSTANTS, CoverageAnalysis } from '@stryk
 import { Logger } from '@stryker-mutator/api/logging';
 import { commonTokens, Injector, PluginContext, tokens } from '@stryker-mutator/api/plugin';
 import {
-  TestRunner,
   MutantRunOptions,
   DryRunResult,
   MutantRunResult,

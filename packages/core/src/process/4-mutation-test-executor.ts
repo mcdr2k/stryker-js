@@ -1,7 +1,16 @@
-import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap } from 'rxjs';
-import { toArray, map, shareReplay, tap } from 'rxjs/operators';
+import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap, of } from 'rxjs';
+import { toArray, map, shareReplay, tap, mergeAll } from 'rxjs/operators';
 import { tokens, commonTokens } from '@stryker-mutator/api/plugin';
-import { MutantResult, MutantStatus, Mutant, StrykerOptions, PlanKind, MutantTestPlan, MutantRunPlan } from '@stryker-mutator/api/core';
+import {
+  MutantResult,
+  MutantStatus,
+  Mutant,
+  StrykerOptions,
+  PlanKind,
+  MutantTestPlan,
+  MutantRunPlan,
+  SimultaneousMutantRunPlan,
+} from '@stryker-mutator/api/core';
 import { TestRunner, CompleteDryRunResult } from '@stryker-mutator/api/test-runner';
 import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
@@ -81,7 +90,15 @@ export class MutationTestExecutor {
     const { earlyResult$, runMutant$ } = this.executeEarlyResult(from(mutantTestPlans));
     const { passedMutant$, checkResult$ } = this.executeCheck(runMutant$);
     const { coveredMutant$, noCoverageResult$ } = this.executeNoCoverage(passedMutant$);
-    const testRunnerResult$ = this.executeRunInTestRunner(coveredMutant$);
+
+    let testRunnerResult$: Observable<MutantResult>;
+    if (await this.shouldPerformSimultaneousMutationTesting()) {
+      const coveredMutantArray = await lastValueFrom(coveredMutant$.pipe(toArray()));
+      const simultaneousMutantRunPlan$ = from(await this.planner.makeSimultaneousPlan(coveredMutantArray));
+      testRunnerResult$ = this.executeSimultaneousRunInTestRunner(simultaneousMutantRunPlan$);
+    } else {
+      testRunnerResult$ = this.executeRunInTestRunner(coveredMutant$);
+    }
     const results = await lastValueFrom(merge(testRunnerResult$, checkResult$, noCoverageResult$, earlyResult$).pipe(toArray()));
     await this.mutationTestReportHelper.reportAll(results);
     await this.reporter.wrapUp();
@@ -112,6 +129,21 @@ export class MutationTestExecutor {
       const result = await testRunner.mutantRun(runOptions);
       return this.mutationTestReportHelper.reportMutantRunResult(mutant, result);
     });
+  }
+
+  private executeSimultaneousRunInTestRunner(input$: Observable<SimultaneousMutantRunPlan>): Observable<MutantResult> {
+    const sortedPlan$ = input$.pipe(
+      bufferTime(BUFFER_FOR_SORTING_MS),
+      mergeMap((plans) => plans.sort(simultaneousReloadEnvironmentLast)),
+    );
+    return this.testRunnerPool
+      .schedule(sortedPlan$, async (testRunner, { mutants, runOptions }) => {
+        // todo: ensure that #simultaneousMutantRun's result always has the results of
+        // the mutants in the same order as presented in the mutants input
+        const result = await testRunner.simultaneousMutantRun(runOptions);
+        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(mutants, result);
+      })
+      .pipe(mergeAll());
   }
 
   private logDone() {
@@ -177,6 +209,14 @@ export class MutationTestExecutor {
       );
     return checkTask$;
   }
+
+  private async shouldPerformSimultaneousMutationTesting(): Promise<boolean> {
+    return false;
+    // todo: create another way to get test-runner capabilities (with provider ideally), currently breaks test
+    // due to too many calls to testRunnerPool.schedule
+    const capabilities = await lastValueFrom(this.testRunnerPool.schedule(of(0), async (testRunner) => testRunner.capabilities()));
+    return (capabilities?.simultaneousTesting ?? false) && !this.options.disableSimultaneousTesting;
+  }
 }
 
 /**
@@ -185,6 +225,24 @@ export class MutationTestExecutor {
  * @see https://github.com/stryker-mutator/stryker-js/issues/3462
  */
 function reloadEnvironmentLast(a: MutantRunPlan, b: MutantRunPlan): number {
+  if (a.plan === PlanKind.Run && b.plan === PlanKind.Run) {
+    if (a.runOptions.reloadEnvironment && !b.runOptions.reloadEnvironment) {
+      return 1;
+    }
+    if (!a.runOptions.reloadEnvironment && b.runOptions.reloadEnvironment) {
+      return -1;
+    }
+    return 0;
+  }
+  return 0;
+}
+
+/**
+ * Sorting function that sorts mutant run plans that reload environments last.
+ * This can yield a significant performance boost, because it reduces the times a test runner process needs to restart.
+ * @see https://github.com/stryker-mutator/stryker-js/issues/3462
+ */
+function simultaneousReloadEnvironmentLast(a: SimultaneousMutantRunPlan, b: SimultaneousMutantRunPlan): number {
   if (a.plan === PlanKind.Run && b.plan === PlanKind.Run) {
     if (a.runOptions.reloadEnvironment && !b.runOptions.reloadEnvironment) {
       return 1;

@@ -6,7 +6,13 @@ import { commonTokens, tokens } from '@stryker-mutator/api/plugin';
 import { Reporter } from '@stryker-mutator/api/report';
 import { I, normalizeFileName, normalizeWhitespaces, type requireResolve } from '@stryker-mutator/util';
 import { calculateMutationTestMetrics, MutationTestMetricsResult } from 'mutation-testing-metrics';
-import { MutantRunResult, MutantRunStatus, TestResult } from '@stryker-mutator/api/test-runner';
+import {
+  MutantRunResult,
+  MutantRunStatus,
+  SimultaneousMutantRunResult,
+  SimultaneousMutantRunStatus,
+  TestResult,
+} from '@stryker-mutator/api/test-runner';
 import { CheckStatus, PassedCheckResult, CheckResult } from '@stryker-mutator/api/check';
 
 import { strykerVersion } from '../stryker-package.js';
@@ -66,6 +72,22 @@ export class MutationTestReportHelper {
       status,
       location,
     });
+  }
+
+  public reportSimultaneousMutantRunResult(mutants: MutantTestCoverage[], simultaneousResult: SimultaneousMutantRunResult): MutantResult[] {
+    switch (simultaneousResult.status) {
+      case SimultaneousMutantRunStatus.Valid: {
+        const { results } = simultaneousResult;
+        const result = [];
+        for (let i = 0; i < mutants.length; i++) {
+          result.push(this.reportMutantRunResult(mutants[i], results[i]));
+        }
+        return result;
+      }
+      case SimultaneousMutantRunStatus.Invalid:
+        const error = simultaneousResult.invalidResult;
+        return mutants.map((x) => this.reportMutantRunResult(x, error));
+    }
   }
 
   public reportMutantRunResult(mutant: MutantTestCoverage, result: MutantRunResult): MutantResult {

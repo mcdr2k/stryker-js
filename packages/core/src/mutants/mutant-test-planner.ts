@@ -1,7 +1,16 @@
 import path from 'path';
 
-import { TestResult } from '@stryker-mutator/api/test-runner';
-import { MutantRunPlan, MutantTestPlan, PlanKind, Mutant, StrykerOptions, MutantStatus, MutantEarlyResultPlan } from '@stryker-mutator/api/core';
+import { TestResult, regularToSimultaneousMutantRunOptions } from '@stryker-mutator/api/test-runner';
+import {
+  MutantRunPlan,
+  MutantTestPlan,
+  PlanKind,
+  Mutant,
+  StrykerOptions,
+  MutantStatus,
+  MutantEarlyResultPlan,
+  SimultaneousMutantRunPlan,
+} from '@stryker-mutator/api/core';
 import { commonTokens, tokens } from '@stryker-mutator/api/plugin';
 import { Logger } from '@stryker-mutator/api/logging';
 import { I, notEmpty, split } from '@stryker-mutator/util';
@@ -61,6 +70,51 @@ export class MutantTestPlanner {
     this.reporter.onMutationTestingPlanReady({ mutantPlans });
     this.warnAboutSlow(mutantPlans);
     return mutantPlans;
+  }
+
+  public async makeSimultaneousPlan(mutants: readonly MutantRunPlan[]): Promise<SimultaneousMutantRunPlan[]> {
+    // todo: check if we want to do this here or make this happen in 4-mutation-test-executor
+    // if (!this.testRunnerCapabilities.simultaneousTesting || this.options.disableSimultaneousTesting) {
+    //   return mutants.map((mutant) => MutantTestPlanner.planSingleSimultaneousMutant(mutant));
+    // }
+
+    const staticMutants = mutants.filter((m) => m.mutant.static ?? m.mutant.static === undefined);
+    const runtimeMutants = mutants.filter((m) => m.mutant.static === false);
+
+    // todo: verify definition of testFilter, if undefined does that mean run all tests?
+    // sort the mutants based on test filter length
+    runtimeMutants.sort((m1, m2) => {
+      const f1 = m1.runOptions.testFilter;
+      const f2 = m2.runOptions.testFilter;
+      if (f1 === undefined && f2 === undefined) {
+        return 0;
+      }
+      if (f1 === undefined) {
+        return 1;
+      }
+      if (f2 === undefined) {
+        return -1;
+      }
+      if (f1.length > f2.length) {
+        return 1;
+      }
+      if (f1.length < f2.length) {
+        return -1;
+      }
+      return 0;
+    });
+    // TODO: create simultaneous mutant run plans for runtime mutants
+    const result = runtimeMutants.map(MutantTestPlanner.planSingleSimultaneousMutant);
+    result.push(...staticMutants.map(MutantTestPlanner.planSingleSimultaneousMutant));
+    return result;
+  }
+
+  public static planSingleSimultaneousMutant(plan: MutantRunPlan): SimultaneousMutantRunPlan {
+    return {
+      plan: PlanKind.Run,
+      mutants: [plan.mutant],
+      runOptions: regularToSimultaneousMutantRunOptions(plan.runOptions),
+    };
   }
 
   private planMutant(mutant: Mutant): MutantTestPlan {

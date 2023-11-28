@@ -1,6 +1,6 @@
 import * as schema from 'mutation-testing-report-schema/api';
 
-import { MutantRunOptions } from '../test-runner/index.js';
+import { MutantRunOptions, SimultaneousMutantRunOptions } from '../test-runner/index.js';
 
 import { MutantTestCoverage } from './mutant.js';
 
@@ -53,4 +53,10 @@ export interface MutantRunPlan {
    * This is used as input to calculate the runOptions.timeout
    */
   netTime: number;
+}
+
+export interface SimultaneousMutantRunPlan {
+  plan: PlanKind.Run;
+  mutants: MutantTestCoverage[];
+  runOptions: SimultaneousMutantRunOptions;
 }
