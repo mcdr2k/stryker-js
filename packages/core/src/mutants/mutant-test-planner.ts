@@ -1,6 +1,6 @@
 import path from 'path';
 
-import { TestResult, regularToSimultaneousMutantRunOptions } from '@stryker-mutator/api/test-runner';
+import { TestResult, createSimultaneousMutantRunOptions, regularToSimultaneousMutantRunOptions } from '@stryker-mutator/api/test-runner';
 import {
   MutantRunPlan,
   MutantTestPlan,
@@ -77,13 +77,47 @@ export class MutantTestPlanner {
     // if (!this.testRunnerCapabilities.simultaneousTesting || this.options.disableSimultaneousTesting) {
     //   return mutants.map((mutant) => MutantTestPlanner.planSingleSimultaneousMutant(mutant));
     // }
+    // todo: some test frameworks cannot provide coverage data, then we cannot determine reachability between mutants
+    return this.makeSimpleSimultaneousPlan(mutants);
+  }
 
+  /**
+   * Create a 'simple' simultaneous plan. This algorithm just iteratively groups the first found disjoint
+   * mutants together. This is done by first sorting the mutants based on test size. This is an adaptation
+   * from {@link https://github.com/stryker-mutator/stryker-net/blob/master/src/Stryker.Core/Stryker.Core/MutationTest/MutationTestProcess.cs#L190 Stryker.NET's algorithm}.
+   */
+  private makeSimpleSimultaneousPlan(mutants: readonly MutantRunPlan[]): SimultaneousMutantRunPlan[] {
+    // static mutants cannot be grouped
     const staticMutants = mutants.filter((m) => m.mutant.static ?? m.mutant.static === undefined);
-    const runtimeMutants = mutants.filter((m) => m.mutant.static === false);
+    const mutantsToGroup = mutants.filter((m) => m.mutant.static === false);
+
+    const testCount = 1000; // TODO: retrieve total tests from dry run
+    mutantsToGroup.sort(sortBasedOnTestSize);
+    // todo: are there more constraints other than static and disjoint coverage?
+    const mutantGroups = [];
+    while (mutantsToGroup.length > 0) {
+      // todo: what if coverage data is not available??
+      const simultaneousTestSet = mutantsToGroup[0].mutant.coveredBy ?? [];
+      const nextGroup = [mutantsToGroup[0]];
+      mutantsToGroup.splice(0, 1);
+      for (let i = 0; i < mutantsToGroup.length; i++) {
+        const currentMutant = mutantsToGroup[i];
+        const nextTestSet = currentMutant.mutant.coveredBy ?? [];
+        if (simultaneousTestSet.length + nextTestSet.length > testCount) break;
+        if (simultaneousTestSet.some((test) => nextTestSet.includes(test))) continue;
+        nextGroup.push(currentMutant);
+        mutantsToGroup.splice(i--, 1);
+        simultaneousTestSet.push(...nextTestSet);
+      }
+      mutantGroups.push(MutantTestPlanner.planSimultaneousMutant(nextGroup));
+    }
+
+    mutantGroups.push(...staticMutants.map(MutantTestPlanner.planSingleSimultaneousMutant));
+    return mutantGroups;
 
     // todo: verify definition of testFilter, if undefined does that mean run all tests?
     // sort the mutants based on test filter length
-    runtimeMutants.sort((m1, m2) => {
+    function sortBasedOnTestSize(m1: MutantRunPlan, m2: MutantRunPlan): number {
       const f1 = m1.runOptions.testFilter;
       const f2 = m2.runOptions.testFilter;
       if (f1 === undefined && f2 === undefined) {
@@ -102,11 +136,7 @@ export class MutantTestPlanner {
         return -1;
       }
       return 0;
-    });
-    // TODO: create simultaneous mutant run plans for runtime mutants
-    const result = runtimeMutants.map(MutantTestPlanner.planSingleSimultaneousMutant);
-    result.push(...staticMutants.map(MutantTestPlanner.planSingleSimultaneousMutant));
-    return result;
+    }
   }
 
   public static planSingleSimultaneousMutant(plan: MutantRunPlan): SimultaneousMutantRunPlan {
@@ -114,6 +144,14 @@ export class MutantTestPlanner {
       plan: PlanKind.Run,
       mutants: [plan.mutant],
       runOptions: regularToSimultaneousMutantRunOptions(plan.runOptions),
+    };
+  }
+
+  public static planSimultaneousMutant(plans: MutantRunPlan[]): SimultaneousMutantRunPlan {
+    return {
+      plan: PlanKind.Run,
+      mutants: plans.map((x) => x.mutant),
+      runOptions: createSimultaneousMutantRunOptions(...plans.map((x) => x.runOptions)),
     };
   }
 
