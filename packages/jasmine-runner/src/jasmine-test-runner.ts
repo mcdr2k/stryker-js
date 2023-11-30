@@ -76,7 +76,11 @@ export class JasmineTestRunner extends SingularTestRunner {
   ): Promise<DryRunResult> {
     try {
       if (!this.jasmine) {
-        this.instrumenterContext.activeMutant = mutantActivation === 'static' ? activeMutantId : undefined;
+        if (activeMutantId !== undefined) {
+          this.instrumenterContext.activeMutants = mutantActivation === 'static' ? new Set([activeMutantId]) : undefined;
+        } else {
+          this.instrumenterContext.activeMutants = undefined;
+        }
         this.jasmine = await this.createAndConfigureJasmineRunner(disableBail);
       }
       const jasmineInstance: jasmine = this.jasmine;
@@ -87,7 +91,11 @@ export class JasmineTestRunner extends SingularTestRunner {
       let result: DryRunResult | undefined;
       const reporter: jasmine.CustomReporter = {
         jasmineStarted() {
-          self.instrumenterContext.activeMutant = activeMutantId;
+          if (activeMutantId !== undefined) {
+            self.instrumenterContext.activeMutants = new Set([activeMutantId]);
+          } else {
+            self.instrumenterContext.activeMutants = undefined;
+          }
         },
         specStarted(spec) {
           if (coverageAnalysis && coverageAnalysis === 'perTest') {

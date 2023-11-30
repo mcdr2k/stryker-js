@@ -128,13 +128,13 @@ export class MochaTestRunner extends SingularTestRunner {
     setBail(!disableBail, this.mocha.suite);
     try {
       if (!this.loadedEnv) {
-        this.instrumenterContext.activeMutant = mutantActivation === 'static' ? activeMutantId : undefined;
+        this.instrumenterContext.activeMutants = mutantActivation === 'static' ? new Set(activeMutantId) : undefined;
         // Loading files Async is needed to support native esm modules
         // See https://mochajs.org/api/mocha#loadFilesAsync
         await this.mocha.loadFilesAsync();
         this.loadedEnv = true;
       }
-      this.instrumenterContext.activeMutant = activeMutantId;
+      this.instrumenterContext.activeMutants = new Set(activeMutantId);
       await this.runMocha();
       const reporter = StrykerMochaReporter.currentInstance;
       if (reporter) {

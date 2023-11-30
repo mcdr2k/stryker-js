@@ -146,7 +146,7 @@ export class JestTestRunner extends SingularTestRunner {
       return toMutantRunResult(dryRunResult, disableBail);
     } finally {
       delete process.env[INSTRUMENTER_CONSTANTS.ACTIVE_MUTANT_ENV_VARIABLE];
-      delete state.instrumenterContext.activeMutant;
+      delete state.instrumenterContext.activeMutants;
     }
   }
 

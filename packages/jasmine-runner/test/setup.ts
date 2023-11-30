@@ -10,7 +10,7 @@ chai.use(chaiAsPromised);
 
 export const mochaHooks = {
   afterEach(): void {
-    delete global.__stryker2__?.activeMutant;
+    delete global.__stryker2__?.activeMutants;
     delete global.__stryker2__?.currentTestId;
     delete global.__stryker2__?.mutantCoverage;
 

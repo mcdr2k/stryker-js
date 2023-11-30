@@ -2,8 +2,8 @@
  function stryNS_9fa48() {
   var g = typeof globalThis === 'object' && globalThis && globalThis.Math === Math && globalThis || new Function("return this")();
   var ns = g.__stryker2__ || (g.__stryker2__ = {});
-  if (ns.activeMutant === undefined && g.process && g.process.env && g.process.env.__STRYKER_ACTIVE_MUTANT__) {
-    ns.activeMutant = g.process.env.__STRYKER_ACTIVE_MUTANT__;
+  if (ns.activeMutants === undefined && g.process && g.process.env && g.process.env.__STRYKER_ACTIVE_MUTANT__) {
+    ns.activeMutants = new Set([g.process.env.__STRYKER_ACTIVE_MUTANT__]);
   }
   function retrieveNS() {
     return ns;
@@ -34,7 +34,7 @@ function stryCov_9fa48() {
 function stryMutAct_9fa48(id) {
   var ns = stryNS_9fa48();
   function isActive(id) {
-    if (ns.activeMutant === id) {
+    if (ns.activeMutants !== undefined && ns.activeMutants.has(id)) {
       if (ns.hitCount !== void 0 && ++ns.hitCount > ns.hitLimit) {
         throw new Error('Stryker: Hit count limit reached (' + ns.hitCount + ')');
       }

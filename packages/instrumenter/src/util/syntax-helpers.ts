@@ -24,8 +24,8 @@ export const instrumentationBabelHeader = deepFreeze(
     `function ${STRYKER_NAMESPACE_HELPER}(){
   var g = typeof globalThis === 'object' && globalThis && globalThis.Math === Math && globalThis || new Function("return this")();
   var ns = g.${ID.NAMESPACE} || (g.${ID.NAMESPACE} = {});
-  if (ns.${ID.ACTIVE_MUTANT} === undefined && g.process && g.process.env && g.process.env.${ID.ACTIVE_MUTANT_ENV_VARIABLE}) {
-    ns.${ID.ACTIVE_MUTANT} = g.process.env.${ID.ACTIVE_MUTANT_ENV_VARIABLE};
+  if (ns.${ID.ACTIVE_MUTANTS} === undefined && g.process && g.process.env && g.process.env.${ID.ACTIVE_MUTANT_ENV_VARIABLE}) {
+    ns.${ID.ACTIVE_MUTANTS} = new Set([g.process.env.${ID.ACTIVE_MUTANT_ENV_VARIABLE}]);
   }
   function retrieveNS(){
     return ns;
@@ -54,7 +54,7 @@ function ${COVER_MUTANT_HELPER}() {
 function ${IS_MUTANT_ACTIVE_HELPER}(id) {
   var ns = ${STRYKER_NAMESPACE_HELPER}();
   function isActive(id) {
-    if (ns.${ID.ACTIVE_MUTANT} === id) {
+    if (ns.${ID.ACTIVE_MUTANTS} !== undefined && ns.${ID.ACTIVE_MUTANTS}.has(id)) {
       if (ns.${ID.HIT_COUNT} !== void 0 && ++ns.${ID.HIT_COUNT} > ns.${ID.HIT_LIMIT}) {
         throw new Error('Stryker: Hit count limit reached (' + ns.${ID.HIT_COUNT} + ')');
       }

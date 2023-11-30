@@ -6,7 +6,7 @@ import { MutantCoverage } from './mutant-coverage.js';
 export const INSTRUMENTER_CONSTANTS = Object.freeze({
   NAMESPACE: '__stryker__',
   MUTATION_COVERAGE_OBJECT: identity('mutantCoverage'),
-  ACTIVE_MUTANT: identity('activeMutant'),
+  ACTIVE_MUTANTS: identity('activeMutants'),
   CURRENT_TEST_ID: identity('currentTestId'),
   HIT_COUNT: identity('hitCount'),
   HIT_LIMIT: identity('hitLimit'),
@@ -14,7 +14,7 @@ export const INSTRUMENTER_CONSTANTS = Object.freeze({
 } as const);
 
 export interface InstrumenterContext {
-  activeMutant?: string;
+  activeMutants?: Set<string>;
   currentTestId?: string;
   mutantCoverage?: MutantCoverage;
   hitCount?: number;
