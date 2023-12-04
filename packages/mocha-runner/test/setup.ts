@@ -20,7 +20,7 @@ export const mochaHooks = {
     sinon.restore();
     testInjector.reset();
     StrykerMochaReporter.currentInstance = undefined;
-    delete global.__stryker2__?.activeMutant;
+    delete global.__stryker2__?.activeMutants;
     delete global.__stryker2__?.currentTestId;
     if (global.__stryker2__?.mutantCoverage?.perTest) {
       global.__stryker2__.mutantCoverage.perTest = {};

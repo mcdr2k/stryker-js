@@ -61,7 +61,7 @@ export class TestHooksMiddleware {
     this.configureCoverageAnalysis('off');
     this.currentTestHooks += `window.${NAMESPACE} = window.${NAMESPACE} || {};`;
     this.currentTestHooks += this.configureHitLimit(hitLimit);
-    this.currentTestHooks += `window.${NAMESPACE}.${ACTIVE_MUTANTS} = "${activeMutant.id}";`;
+    this.currentTestHooks += `window.${NAMESPACE}.${ACTIVE_MUTANTS} = new Set(["${activeMutant.id}"]);`;
     if (testFilter) {
       switch (this.testFramework) {
         case 'jasmine':

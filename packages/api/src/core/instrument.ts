@@ -44,11 +44,15 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
   }
 
   /**
-   * Convenience method for setting the active mutants with any number of mutants. If no arguments were provided
-   * it will set the active mutants to being undefined.
+   * Convenience method for setting the active mutants with any number of mutants. If the first argument
+   * is undefined it will set the active mutants to being undefined, regardless of the following arguments.
    */
-  public setActiveMutants(...activeMutants: readonly string[]): void {
-    this.activeMutants = activeMutants.length === 0 ? undefined : new Set(activeMutants);
+  public setActiveMutants(activeMutant: string | undefined, ...activeMutants: readonly string[]): void {
+    if (activeMutant === undefined) {
+      this.clearActiveMutants();
+    } else {
+      this.activeMutants = new Set([activeMutant, ...activeMutants]);
+    }
   }
 
   /**

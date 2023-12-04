@@ -25,9 +25,9 @@ import {
   toMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import {
-  InstrumenterContext,
   INSTRUMENTER_CONSTANTS,
   StrykerOptions,
+  InstrumenterContextWrapper,
 } from '@stryker-mutator/api/core';
 import type {
   IConfiguration,
@@ -90,7 +90,7 @@ export class CucumberTestRunner extends SingularTestRunner {
 
   private supportCodeLibrary?: ISupportCodeLibrary;
   private readonly options: CucumberSetup;
-  private readonly instrumenterContext: InstrumenterContext;
+  private readonly instrumenterContext: InstrumenterContextWrapper;
 
   constructor(
     private readonly logger: Logger,
@@ -101,7 +101,7 @@ export class CucumberTestRunner extends SingularTestRunner {
     guardForCucumberJSVersion();
     this.options = (options as CucumberRunnerWithStrykerOptions).cucumber;
     this.instrumenterContext =
-      global[globalNamespace] ?? (global[globalNamespace] = {});
+      InstrumenterContextWrapper.WrapGlobalContext(globalNamespace);
     StrykerFormatter.instrumenterContext = this.instrumenterContext;
   }
 
@@ -121,7 +121,7 @@ export class CucumberTestRunner extends SingularTestRunner {
     return result;
   }
   public async mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
-    this.instrumenterContext.activeMutant = options.activeMutant.id;
+    this.instrumenterContext.setActiveMutants(options.activeMutant.id);
     this.instrumenterContext.hitLimit = options.hitLimit;
     this.instrumenterContext.hitCount = options.hitLimit ? 0 : undefined;
     return toMutantRunResult(
