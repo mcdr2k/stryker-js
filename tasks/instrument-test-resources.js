@@ -45,6 +45,8 @@ async function main() {
       './packages/jest-runner/testResources/jasmine2-node/src/Add.js': './packages/jest-runner/testResources/jasmine2-node-instrumented/src/Add.js',
       './packages/jest-runner/testResources/jasmine2-node/src/Circle.js':
         './packages/jest-runner/testResources/jasmine2-node-instrumented/src/Circle.js',
+      './packages/jest-runner/testResources/infinite-loop/infinite-loop.js':
+        './packages/jest-runner/testResources/infinite-loop-instrumented/infinite-loop.js',
     },
     '__stryker2__',
   );
