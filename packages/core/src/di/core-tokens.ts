@@ -1,3 +1,4 @@
+export const capabilities = 'capabilities';
 export const checkerPool = 'checkerPool';
 export const checkerFactory = 'checkerFactory';
 export const checkerConcurrencyTokens = 'checkerConcurrencyTokens';

@@ -11,7 +11,7 @@ import {
   MutantRunPlan,
   SimultaneousMutantRunPlan,
 } from '@stryker-mutator/api/core';
-import { TestRunner, CompleteDryRunResult } from '@stryker-mutator/api/test-runner';
+import { TestRunner, CompleteDryRunResult, TestRunnerCapabilities } from '@stryker-mutator/api/test-runner';
 import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
 import { CheckStatus } from '@stryker-mutator/api/check';
@@ -30,6 +30,7 @@ export interface MutationTestContext extends DryRunContext {
   [coreTokens.testRunnerPool]: I<Pool<TestRunner>>;
   [coreTokens.timeOverheadMS]: number;
   [coreTokens.mutationTestReportHelper]: MutationTestReportHelper;
+  [coreTokens.capabilities]: TestRunnerCapabilities;
   [coreTokens.mutantTestPlanner]: MutantTestPlanner;
   [coreTokens.dryRunResult]: I<CompleteDryRunResult>;
 }
@@ -54,6 +55,7 @@ export class MutationTestExecutor {
     coreTokens.mutants,
     coreTokens.mutantTestPlanner,
     coreTokens.mutationTestReportHelper,
+    coreTokens.capabilities,
     commonTokens.logger,
     commonTokens.options,
     coreTokens.timer,
@@ -68,6 +70,7 @@ export class MutationTestExecutor {
     private readonly mutants: readonly Mutant[],
     private readonly planner: MutantTestPlanner,
     private readonly mutationTestReportHelper: I<MutationTestReportHelper>,
+    private readonly capabilities: TestRunnerCapabilities,
     private readonly log: Logger,
     private readonly options: StrykerOptions,
     private readonly timer: I<Timer>,

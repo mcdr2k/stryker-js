@@ -14,6 +14,7 @@ import {
   TestResult,
   FailedTestResult,
   ErrorDryRunResult,
+  TestRunnerCapabilities,
 } from '@stryker-mutator/api/test-runner';
 import { lastValueFrom, of } from 'rxjs';
 
@@ -76,7 +77,14 @@ export class DryRunExecutor {
       .provideValue(coreTokens.testRunnerConcurrencyTokens, this.concurrencyTokenProvider.testRunnerToken$)
       .provideFactory(coreTokens.testRunnerPool, createTestRunnerPool);
     const testRunnerPool = testRunnerInjector.resolve(coreTokens.testRunnerPool);
-    const { result, timing } = await lastValueFrom(testRunnerPool.schedule(of(0), (testRunner) => this.executeDryRun(testRunner)));
+    // todo: retrieve capabilities from provider (does not exist yet)
+    let capabilities: TestRunnerCapabilities = undefined!;
+    const { result, timing } = await lastValueFrom(
+      testRunnerPool.schedule(of(0), async (testRunner) => {
+        capabilities = await testRunner.capabilities();
+        return this.executeDryRun(testRunner);
+      }),
+    );
 
     this.logInitialTestRunSucceeded(result.tests, timing);
     if (!result.tests.length && !this.options.allowEmpty) {
@@ -87,6 +95,7 @@ export class DryRunExecutor {
       .provideValue(coreTokens.timeOverheadMS, timing.overhead)
       .provideValue(coreTokens.dryRunResult, result)
       .provideValue(coreTokens.requireFromCwd, requireResolve)
+      .provideValue(coreTokens.capabilities, capabilities)
       .provideFactory(coreTokens.testCoverage, TestCoverage.from)
       .provideClass(coreTokens.incrementalDiffer, IncrementalDiffer)
       .provideClass(coreTokens.mutantTestPlanner, MutantTestPlanner)

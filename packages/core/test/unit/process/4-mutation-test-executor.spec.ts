@@ -85,6 +85,7 @@ describe(MutationTestExecutor.name, () => {
       .provideValue(coreTokens.mutants, mutants)
       .provideValue(coreTokens.mutantTestPlanner, mutantTestPlannerMock)
       .provideValue(coreTokens.mutationTestReportHelper, mutationTestReportHelperMock)
+      .provideValue(coreTokens.capabilities, factory.testRunnerCapabilities())
       .provideValue(coreTokens.sandbox, sandboxMock)
       .provideValue(coreTokens.timer, timerMock)
       .provideValue(coreTokens.testRunnerPool, testRunnerPoolMock)
