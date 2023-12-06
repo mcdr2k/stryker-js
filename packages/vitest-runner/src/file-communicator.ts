@@ -45,10 +45,10 @@ export class FileCommunicator {
   
       ${
         options.mutantActivation === 'static'
-          ? `ns.activeMutant = '${options.activeMutant.id}';`
+          ? `ns.activeMutants = new Set(['${options.activeMutant.id}']);`
           : `
             beforeEach(() => {
-              ns.activeMutant = '${options.activeMutant.id}';
+              ns.activeMutants = new Set(['${options.activeMutant.id}']);
             });`
       }
       afterAll(async (suite) => {

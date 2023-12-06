@@ -98,9 +98,9 @@ describe(JasmineTestRunner.name, () => {
       await tick();
 
       // Assert
-      expect(global.__stryker2__?.activeMutant).eq('23');
+      expect(global.__stryker2__?.activeMutants).deep.eq(new Set(['23']));
       await customReporter!.jasmineStarted!(createJasmineStartedInfo());
-      expect(global.__stryker2__?.activeMutant).eq('23');
+      expect(global.__stryker2__?.activeMutants).deep.eq(new Set(['23']));
       const doneInfo = createJasmineDoneInfo();
       await customReporter!.jasmineDone!(doneInfo);
       executeTask.resolve(doneInfo);
@@ -122,9 +122,9 @@ describe(JasmineTestRunner.name, () => {
       await tick();
 
       // Assert
-      expect(global.__stryker2__?.activeMutant).undefined;
+      expect(global.__stryker2__?.activeMutants).undefined;
       await customReporter!.jasmineStarted!(createJasmineStartedInfo());
-      expect(global.__stryker2__?.activeMutant).eq('23');
+      expect(global.__stryker2__?.activeMutants).deep.eq(new Set(['23']));
       const doneInfo = createJasmineDoneInfo();
       await customReporter!.jasmineDone!(doneInfo);
       executeTask.resolve(doneInfo);

@@ -1,4 +1,4 @@
-import { InstrumenterContext, INSTRUMENTER_CONSTANTS, StrykerOptions } from '@stryker-mutator/api/core';
+import { INSTRUMENTER_CONSTANTS, StrykerOptions, InstrumenterContextWrapper } from '@stryker-mutator/api/core';
 import { Logger } from '@stryker-mutator/api/logging';
 import { commonTokens, tokens } from '@stryker-mutator/api/plugin';
 import { I, escapeRegExp } from '@stryker-mutator/util';
@@ -27,7 +27,7 @@ import { MochaAdapter } from './mocha-adapter.js';
 
 export class MochaTestRunner extends SingularTestRunner {
   private mocha!: Mocha;
-  private readonly instrumenterContext: InstrumenterContext;
+  private readonly instrumenterContext: InstrumenterContextWrapper;
   private originalGrep?: string;
   public beforeEach?: (context: Context) => void;
 
@@ -48,7 +48,7 @@ export class MochaTestRunner extends SingularTestRunner {
   ) {
     super();
     StrykerMochaReporter.log = log;
-    this.instrumenterContext = global[globalNamespace] ?? (global[globalNamespace] = {});
+    this.instrumenterContext = InstrumenterContextWrapper.WrapGlobalContext(globalNamespace);
   }
 
   public async capabilities(): Promise<TestRunnerCapabilities> {
@@ -128,13 +128,17 @@ export class MochaTestRunner extends SingularTestRunner {
     setBail(!disableBail, this.mocha.suite);
     try {
       if (!this.loadedEnv) {
-        this.instrumenterContext.activeMutant = mutantActivation === 'static' ? activeMutantId : undefined;
+        if (activeMutantId !== undefined && mutantActivation === 'static') {
+          this.instrumenterContext.setActiveMutants(activeMutantId);
+        } else {
+          this.instrumenterContext.activeMutants = undefined;
+        }
         // Loading files Async is needed to support native esm modules
         // See https://mochajs.org/api/mocha#loadFilesAsync
         await this.mocha.loadFilesAsync();
         this.loadedEnv = true;
       }
-      this.instrumenterContext.activeMutant = activeMutantId;
+      this.instrumenterContext.activeMutants = activeMutantId === undefined ? undefined : new Set([activeMutantId]);
       await this.runMocha();
       const reporter = StrykerMochaReporter.currentInstance;
       if (reporter) {

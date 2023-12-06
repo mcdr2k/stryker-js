@@ -1,6 +1,6 @@
 import { EOL } from 'os';
 
-import { StrykerOptions, CoverageAnalysis, InstrumenterContext, MutantCoverage, INSTRUMENTER_CONSTANTS } from '@stryker-mutator/api/core';
+import { StrykerOptions, CoverageAnalysis, MutantCoverage, INSTRUMENTER_CONSTANTS, InstrumenterContextWrapper } from '@stryker-mutator/api/core';
 import { commonTokens, tokens, Injector, PluginContext } from '@stryker-mutator/api/plugin';
 import {
   DryRunStatus,
@@ -42,13 +42,13 @@ export const createJasmineTestRunner = createJasmineTestRunnerFactory();
 export class JasmineTestRunner extends SingularTestRunner {
   private readonly jasmineConfigFile: string | undefined;
   private readonly Date: typeof Date = Date; // take Date prototype now we still can (user might choose to mock it away)
-  private readonly instrumenterContext: InstrumenterContext;
+  private readonly instrumenterContext: InstrumenterContextWrapper;
 
   public static inject = tokens(commonTokens.options, pluginTokens.globalNamespace);
   constructor(options: StrykerOptions, globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__') {
     super();
     this.jasmineConfigFile = (options as JasmineRunnerOptions).jasmineConfigFile;
-    this.instrumenterContext = global[globalNamespace] ?? (global[globalNamespace] = {});
+    this.instrumenterContext = InstrumenterContextWrapper.WrapGlobalContext(globalNamespace);
   }
 
   public capabilities(): TestRunnerCapabilities {
@@ -76,7 +76,12 @@ export class JasmineTestRunner extends SingularTestRunner {
   ): Promise<DryRunResult> {
     try {
       if (!this.jasmine) {
-        this.instrumenterContext.activeMutant = mutantActivation === 'static' ? activeMutantId : undefined;
+        if (activeMutantId !== undefined && mutantActivation === 'static') {
+          this.instrumenterContext.setActiveMutants(activeMutantId);
+          // this.instrumenterContext.activeMutants = mutantActivation === 'static' ? new Set([activeMutantId]) : undefined;
+        } else {
+          this.instrumenterContext.activeMutants = undefined;
+        }
         this.jasmine = await this.createAndConfigureJasmineRunner(disableBail);
       }
       const jasmineInstance: jasmine = this.jasmine;
@@ -87,7 +92,11 @@ export class JasmineTestRunner extends SingularTestRunner {
       let result: DryRunResult | undefined;
       const reporter: jasmine.CustomReporter = {
         jasmineStarted() {
-          self.instrumenterContext.activeMutant = activeMutantId;
+          if (activeMutantId !== undefined) {
+            self.instrumenterContext.activeMutants = new Set([activeMutantId]);
+          } else {
+            self.instrumenterContext.activeMutants = undefined;
+          }
         },
         specStarted(spec) {
           if (coverageAnalysis && coverageAnalysis === 'perTest') {

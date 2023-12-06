@@ -267,10 +267,10 @@ describe(MochaTestRunner.name, () => {
       );
 
       // Assert
-      expect(global.__stryker2__?.activeMutant).eq('42');
+      expect(global.__stryker2__?.activeMutants).deep.eq(new Set(['42']));
       loadFilesAsyncTask.resolve();
       await tick();
-      expect(global.__stryker2__?.activeMutant).eq('42');
+      expect(global.__stryker2__?.activeMutants).deep.eq(new Set(['42']));
       expect(mocha.run).called;
       await onGoingAct;
     });
@@ -286,10 +286,10 @@ describe(MochaTestRunner.name, () => {
       );
 
       // Assert
-      expect(global.__stryker2__?.activeMutant).eq(undefined);
+      expect(global.__stryker2__?.activeMutants).eq(undefined);
       loadFilesAsyncTask.resolve();
       await tick();
-      expect(global.__stryker2__?.activeMutant).eq('42');
+      expect(global.__stryker2__?.activeMutants).deep.eq(new Set(['42']));
       expect(mocha.run).called;
       await onGoingAct;
     });

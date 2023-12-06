@@ -1,15 +1,14 @@
 describe('mutant-activation', () => {
-  function getActiveMutant() {
-    if (globalThis.__stryker2__ && globalThis.__stryker2__.activeMutant) {
-      return globalThis.__stryker2__.activeMutant;
+  function getActiveMutants() {
+    if (globalThis.__stryker2__ && globalThis.__stryker2__.activeMutants) {
+      return [...globalThis.__stryker2__.activeMutants];
     }
     return null;
   }
-  const staticActiveMutant = getActiveMutant();
+  const staticActiveMutants = getActiveMutants();
 
   it('should report active mutants', () => {
-    const runtimeActiveMutant = getActiveMutant();
-
-    throw new Error(JSON.stringify({ staticActiveMutant, runtimeActiveMutant }));
+    const runtimeActiveMutants = getActiveMutants();
+    throw new Error(JSON.stringify({ staticActiveMutants, runtimeActiveMutants }));
   });
 });

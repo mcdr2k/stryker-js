@@ -25,7 +25,7 @@ function isSupportedFramework(framework: string): framework is SupportedFramewor
  */
 const SHOULD_REPORT_COVERAGE_FLAG = '__strykerShouldReportCoverage__';
 
-const { ACTIVE_MUTANT, NAMESPACE, CURRENT_TEST_ID, HIT_COUNT, HIT_LIMIT } = INSTRUMENTER_CONSTANTS;
+const { ACTIVE_MUTANTS, NAMESPACE, CURRENT_TEST_ID, HIT_COUNT, HIT_LIMIT } = INSTRUMENTER_CONSTANTS;
 
 export class TestHooksMiddleware {
   private static _instance?: TestHooksMiddleware;
@@ -61,7 +61,7 @@ export class TestHooksMiddleware {
     this.configureCoverageAnalysis('off');
     this.currentTestHooks += `window.${NAMESPACE} = window.${NAMESPACE} || {};`;
     this.currentTestHooks += this.configureHitLimit(hitLimit);
-    this.currentTestHooks += `window.${NAMESPACE}.${ACTIVE_MUTANT} = "${activeMutant.id}";`;
+    this.currentTestHooks += `window.${NAMESPACE}.${ACTIVE_MUTANTS} = new Set(["${activeMutant.id}"]);`;
     if (testFilter) {
       switch (this.testFramework) {
         case 'jasmine':

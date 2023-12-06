@@ -61,13 +61,13 @@ describe(FileCommunicator.name, () => {
       await sut.setMutantRun(factory.mutantRunOptions({ mutantActivation: 'static', activeMutant: factory.mutant({ id: '12345' }) }));
       const data = writeFileStub.firstCall.args[1] as string;
       expect(/beforeEach\((.*)\);/gs.exec(data)).to.be.null;
-      assertVitestSetupContains("ns.activeMutant = '12345'");
+      assertVitestSetupContains("ns.activeMutants = new Set(['12345'])");
     });
 
     it('should set active mutant in before each if mutant is runtime', async () => {
       await sut.setMutantRun(factory.mutantRunOptions({ mutantActivation: 'runtime', activeMutant: factory.mutant({ id: '12345' }) }));
       assertVitestSetupContains(`beforeEach(() => {
-        ns.activeMutant = '12345';
+        ns.activeMutants = new Set(['12345']);
       })`);
     });
 

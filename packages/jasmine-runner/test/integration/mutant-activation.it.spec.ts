@@ -23,7 +23,10 @@ describe(`${JasmineTestRunner.name} mutant activation`, () => {
     );
     assertions.expectKilled(result);
     expect(result.failureMessage.startsWith('Error:'), result.failureMessage).true;
-    expect(JSON.parse(result.failureMessage.substring('Error:'.length))).deep.eq({ runtimeActiveMutant: '42', staticActiveMutant: '42' });
+    expect(JSON.parse(result.failureMessage.substring('Error:'.length))).deep.eq({
+      runtimeActiveMutants: ['42'],
+      staticActiveMutants: ['42'],
+    });
   });
 
   it('should support runtime', async function () {
@@ -32,6 +35,6 @@ describe(`${JasmineTestRunner.name} mutant activation`, () => {
     );
     assertions.expectKilled(result);
     expect(result.failureMessage.startsWith('Error:'), result.failureMessage).true;
-    expect(JSON.parse(result.failureMessage.substring('Error:'.length))).deep.eq({ runtimeActiveMutant: '42', staticActiveMutant: null });
+    expect(JSON.parse(result.failureMessage.substring('Error:'.length))).deep.eq({ runtimeActiveMutants: ['42'], staticActiveMutants: null });
   });
 });
