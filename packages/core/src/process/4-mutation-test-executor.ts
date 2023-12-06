@@ -221,7 +221,7 @@ export class MutationTestExecutor {
    * @returns True if simultaneous testing is possible and desired, false otherwise.
    */
   private shouldPerformSimultaneousMutationTesting(mutantCount: number): boolean {
-    if (this.capabilities.simultaneousTesting ?? false) {
+    if (!this.capabilities.simultaneousTesting) {
       this.log.info('Simultaneous testing is not performed because the test-runner does not support it');
       return false;
     }
