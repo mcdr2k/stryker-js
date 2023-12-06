@@ -1,4 +1,4 @@
-import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap, of } from 'rxjs';
+import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap } from 'rxjs';
 import { toArray, map, shareReplay, tap, mergeAll } from 'rxjs/operators';
 import { tokens, commonTokens } from '@stryker-mutator/api/plugin';
 import {
@@ -46,6 +46,7 @@ const CHECK_BUFFER_MS = 10_000;
  * @see https://github.com/stryker-mutator/stryker-js/issues/3462
  */
 const BUFFER_FOR_SORTING_MS = 0;
+const MUTANT_COUNT_SIMULTANEOUS_TESTING_THRESHOLD = 100;
 
 export class MutationTestExecutor {
   public static inject = tokens(
@@ -95,9 +96,10 @@ export class MutationTestExecutor {
     const { coveredMutant$, noCoverageResult$ } = this.executeNoCoverage(passedMutant$);
 
     let testRunnerResult$: Observable<MutantResult>;
-    if (await this.shouldPerformSimultaneousMutationTesting()) {
+    // todo: prefer the use of coveredMutant$, might impact performance due to synchronization
+    if (this.shouldPerformSimultaneousMutationTesting(this.mutants.length)) {
       const coveredMutantArray = await lastValueFrom(coveredMutant$.pipe(toArray()));
-      const simultaneousMutantRunPlan$ = from(await this.planner.makeSimultaneousPlan(coveredMutantArray));
+      const simultaneousMutantRunPlan$ = from(await this.planner.makeSimultaneousPlan(coveredMutantArray, this.dryRunResult.tests.length));
       testRunnerResult$ = this.executeSimultaneousRunInTestRunner(simultaneousMutantRunPlan$);
     } else {
       testRunnerResult$ = this.executeRunInTestRunner(coveredMutant$);
@@ -213,12 +215,35 @@ export class MutationTestExecutor {
     return checkTask$;
   }
 
-  private async shouldPerformSimultaneousMutationTesting(): Promise<boolean> {
-    return false;
-    // todo: create another way to get test-runner capabilities (with provider ideally), currently breaks test
-    // due to too many calls to testRunnerPool.schedule
-    const capabilities = await lastValueFrom(this.testRunnerPool.schedule(of(0), async (testRunner) => testRunner.capabilities()));
-    return (capabilities?.simultaneousTesting ?? false) && !this.options.disableSimultaneousTesting;
+  /**
+   * Checks whether simultaneous testing should be performed. This includes checks for test-runner capabilities,
+   * configuration options, coverage analysis used.
+   * @returns True if simultaneous testing is possible and desired, false otherwise.
+   */
+  private shouldPerformSimultaneousMutationTesting(mutantCount: number): boolean {
+    if (this.capabilities.simultaneousTesting ?? false) {
+      this.log.info('Simultaneous testing is not performed because the test-runner does not support it');
+      return false;
+    }
+    if (this.options.disableSimultaneousTesting) {
+      this.log.info('Simultaneous testing is not performed because it was disabled by the configuration');
+      return false;
+    }
+    if (this.options.coverageAnalysis === 'off') {
+      this.log.info('Simultaneous testing is not performed because coverage analysis was "off"');
+      return false;
+    }
+    // todo: not necessarily a bad thing to still use simultaneous testing when there are few mutants
+    if (mutantCount < MUTANT_COUNT_SIMULTANEOUS_TESTING_THRESHOLD) {
+      this.log.info(
+        `Simultaneous testing is not performed because there were too few mutants (${mutantCount}), need at least ${MUTANT_COUNT_SIMULTANEOUS_TESTING_THRESHOLD} mutants`,
+      );
+      return false;
+    }
+    // todo: some test frameworks cannot provide coverage data, then we cannot determine reachability between mutants
+    // unclear how I should determine whether frameworks can provide coverage data
+    this.log.info('Simultaneous testing is being performed');
+    return true;
   }
 }
 

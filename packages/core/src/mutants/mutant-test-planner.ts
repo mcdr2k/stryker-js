@@ -72,13 +72,8 @@ export class MutantTestPlanner {
     return mutantPlans;
   }
 
-  public async makeSimultaneousPlan(mutants: readonly MutantRunPlan[]): Promise<SimultaneousMutantRunPlan[]> {
-    // todo: check if we want to do this here or make this happen in 4-mutation-test-executor
-    // if (!this.testRunnerCapabilities.simultaneousTesting || this.options.disableSimultaneousTesting) {
-    //   return mutants.map((mutant) => MutantTestPlanner.planSingleSimultaneousMutant(mutant));
-    // }
-    // todo: some test frameworks cannot provide coverage data, then we cannot determine reachability between mutants
-    return this.makeSimpleSimultaneousPlan(mutants);
+  public async makeSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number): Promise<SimultaneousMutantRunPlan[]> {
+    return this.makeSimpleSimultaneousPlan(mutants, testCount);
   }
 
   /**
@@ -86,12 +81,11 @@ export class MutantTestPlanner {
    * mutants together. This is done by first sorting the mutants based on test size. This is an adaptation
    * from {@link https://github.com/stryker-mutator/stryker-net/blob/master/src/Stryker.Core/Stryker.Core/MutationTest/MutationTestProcess.cs#L190 Stryker.NET's algorithm}.
    */
-  private makeSimpleSimultaneousPlan(mutants: readonly MutantRunPlan[]): SimultaneousMutantRunPlan[] {
-    // static mutants cannot be grouped
+  private makeSimpleSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number): SimultaneousMutantRunPlan[] {
+    // static mutants cannot be grouped (assumption)
     const staticMutants = mutants.filter((m) => m.mutant.static ?? m.mutant.static === undefined);
     const mutantsToGroup = mutants.filter((m) => m.mutant.static === false);
 
-    const testCount = 1000; // TODO: retrieve total tests from dry run
     mutantsToGroup.sort(sortBasedOnTestSize);
     // todo: are there more constraints other than static and disjoint coverage?
     const mutantGroups = [];
