@@ -122,8 +122,16 @@ export class CucumberTestRunner extends SingularTestRunner {
   }
   public async mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
     this.instrumenterContext.setActiveMutants(options.activeMutant.id);
-    this.instrumenterContext.hitLimit = options.hitLimit;
-    this.instrumenterContext.hitCount = options.hitLimit ? 0 : undefined;
+    this.instrumenterContext.assignHitLimit(
+      options.activeMutant.id,
+      options.hitLimit,
+    );
+    this.instrumenterContext.assignHitCount(
+      options.activeMutant.id,
+      options.hitLimit ? 0 : undefined,
+    );
+    // this.instrumenterContext.hitLimit = options.hitLimit;
+    // this.instrumenterContext.hitCount = options.hitLimit ? 0 : undefined;
     return toMutantRunResult(
       await this.run(options.disableBail, options.testFilter),
     );

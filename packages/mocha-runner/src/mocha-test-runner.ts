@@ -111,13 +111,8 @@ export class MochaTestRunner extends SingularTestRunner {
   }
 
   public async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation }: MutantRunOptions): Promise<MutantRunResult> {
-    if (hitLimit) {
-      this.instrumenterContext.hitLimit = hitLimit;
-      this.instrumenterContext.hitCount = 0;
-    } else {
-      this.instrumenterContext.hitLimit = undefined;
-      this.instrumenterContext.hitCount = undefined;
-    }
+    this.instrumenterContext.assignHitLimit(activeMutant.id, hitLimit);
+    this.instrumenterContext.assignHitCount(activeMutant.id, 0);
 
     if (testFilter) {
       const metaRegExp = testFilter.map((testId) => `(${escapeRegExp(testId)})`).join('|');

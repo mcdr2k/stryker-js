@@ -61,8 +61,8 @@ export class JasmineTestRunner extends SingularTestRunner {
   }
 
   public async mutantRun({ hitLimit, testFilter, disableBail, activeMutant, mutantActivation }: MutantRunOptions): Promise<MutantRunResult> {
-    this.instrumenterContext.hitLimit = hitLimit;
-    this.instrumenterContext.hitCount = hitLimit ? 0 : undefined;
+    this.instrumenterContext.assignHitLimit(activeMutant.id, hitLimit);
+    this.instrumenterContext.assignHitCount(activeMutant.id, 0);
     const runResult = await this.run(testFilter, undefined, disableBail, activeMutant.id, mutantActivation);
     return toMutantRunResult(runResult);
   }

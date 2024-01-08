@@ -613,7 +613,7 @@ describe(JestTestRunner.name, () => {
     const sut = createSut();
     await sut.init();
     jestTestAdapterMock.run.callsFake(async () => {
-      state.instrumenterContext.hitCount = hitCount;
+      state.instrumenterContext.assignHitCount(option.activeMutant.id, hitCount);
       return jestRunResult;
     });
     const result = await sut.mutantRun(option);

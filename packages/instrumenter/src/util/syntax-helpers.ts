@@ -55,8 +55,12 @@ function ${IS_MUTANT_ACTIVE_HELPER}(id) {
   var ns = ${STRYKER_NAMESPACE_HELPER}();
   function isActive(id) {
     if (ns.${ID.ACTIVE_MUTANTS} !== void 0 && ns.${ID.ACTIVE_MUTANTS}.has(id)) {
-      if (ns.${ID.HIT_COUNT} !== void 0 && ++ns.${ID.HIT_COUNT} > ns.${ID.HIT_LIMIT}) {
-        throw new Error('Stryker: Hit count limit reached (' + ns.${ID.HIT_COUNT} + ')');
+      if (ns.${ID.HIT_LIMITS} !== void 0) {
+        var hitCount = ns.${ID.HIT_COUNTS}.get(id) + 1;
+        ns.${ID.HIT_COUNTS}.set(id, hitCount);
+        if (hitCount > ns.${ID.HIT_LIMITS}.get(id)) {
+          throw new Error("Stryker: Hit count limit reached for mutant '" + id + "' (" + hitCount + ")");
+        }
       }
       return true;
     }

@@ -8,8 +8,6 @@ export const INSTRUMENTER_CONSTANTS = Object.freeze({
   MUTATION_COVERAGE_OBJECT: identity('mutantCoverage'),
   ACTIVE_MUTANTS: identity('activeMutants'),
   CURRENT_TEST_ID: identity('currentTestId'),
-  HIT_COUNT: identity('hitCount'),
-  HIT_LIMIT: identity('hitLimit'),
   HIT_COUNTS: identity('hitCounts'),
   HIT_LIMITS: identity('hitLimits'),
   ACTIVE_MUTANT_ENV_VARIABLE: '__STRYKER_ACTIVE_MUTANT__',
@@ -19,8 +17,6 @@ export interface InstrumenterContext {
   activeMutants?: Set<string>;
   currentTestId?: string;
   mutantCoverage?: MutantCoverage;
-  hitCount?: number;
-  hitLimit?: number;
   hitCounts?: Map<string, number>;
   hitLimits?: Map<string, number>;
 }
@@ -90,8 +86,12 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
     return this.context.mutantCoverage;
   }
 
-  public clearHitCount(): void {
-    this.hitCount = undefined;
+  public assignHitCount(id: string, count: number | undefined): void {
+    this.clearHitCounts();
+    if (count !== undefined) this.addHitCount(id, count);
+  }
+
+  public clearHitCounts(): void {
     this.hitCounts = undefined;
   }
 
@@ -99,12 +99,24 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
     if (!this.hitCounts) {
       this.hitCounts = new Map();
     }
-    this.hitCount = count;
     this.hitCounts.set(id, count);
   }
 
+  public getHitCount(id: string): number | undefined {
+    return this.hitCounts?.get(id);
+  }
+
+  public get hitCount(): number | undefined {
+    if (this.hitCounts === undefined) {
+      return undefined;
+    }
+    if (this.hitCounts.size !== 1) {
+      throw new Error('Cannot get hit count, size of the map was not equal to 1');
+    }
+    return this.hitCounts.values().next().value;
+  }
+
   public set hitCounts(value: Map<string, number> | undefined) {
-    this.hitCount = value ? value.values().next().value : undefined;
     this.context.hitCounts = value;
   }
 
@@ -112,16 +124,12 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
     return this.context.hitCounts;
   }
 
-  public set hitCount(value: number | undefined) {
-    this.context.hitCount = value;
+  public assignHitLimit(id: string, limit: number | undefined): void {
+    this.clearHitLimits();
+    if (limit !== undefined) this.addHitLimit(id, limit);
   }
 
-  public get hitCount(): number | undefined {
-    return this.context.hitCount;
-  }
-
-  public clearHitLimit(): void {
-    this.hitLimit = undefined;
+  public clearHitLimits(): void {
     this.hitLimits = undefined;
   }
 
@@ -129,12 +137,10 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
     if (!this.hitLimits) {
       this.hitLimits = new Map();
     }
-    this.hitLimit = limit;
     this.hitLimits.set(id, limit);
   }
 
   public set hitLimits(value: Map<string, number> | undefined) {
-    this.hitLimit = value ? value.values().next().value : undefined;
     this.context.hitLimits = value;
   }
 
@@ -142,11 +148,18 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
     return this.context.hitLimits;
   }
 
-  public set hitLimit(value: number | undefined) {
-    this.context.hitLimit = value;
+  public getHitLimit(id: string): number | undefined {
+    return this.hitLimits?.get(id);
   }
 
   public get hitLimit(): number | undefined {
-    return this.context.hitLimit;
+    const limits = this.hitLimits;
+    if (limits === undefined) {
+      return undefined;
+    }
+    if (limits.size !== 1) {
+      throw new Error('Cannot get hit limit, size of the map was not equal to 1');
+    }
+    return limits.values().next().value;
   }
 }

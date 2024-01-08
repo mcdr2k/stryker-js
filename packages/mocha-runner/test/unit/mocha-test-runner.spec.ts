@@ -359,7 +359,8 @@ describe(MochaTestRunner.name, () => {
     async function actMutantRun(options = factory.mutantRunOptions(), hitCount?: number) {
       mocha.run.callsArg(0);
       const result = sut.mutantRun(options);
-      global.__stryker2__!.hitCount = hitCount;
+      global.__stryker2__!.hitCounts = hitCount ? new Map([[options.activeMutant.id, hitCount]]) : undefined;
+      //global.__stryker2__!.hitCount = hitCount;
       return result;
     }
   });
