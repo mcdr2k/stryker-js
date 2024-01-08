@@ -54,7 +54,7 @@ function ${COVER_MUTANT_HELPER}() {
 function ${IS_MUTANT_ACTIVE_HELPER}(id) {
   var ns = ${STRYKER_NAMESPACE_HELPER}();
   function isActive(id) {
-    if (ns.${ID.ACTIVE_MUTANTS} !== undefined && ns.${ID.ACTIVE_MUTANTS}.has(id)) {
+    if (ns.${ID.ACTIVE_MUTANTS} !== void 0 && ns.${ID.ACTIVE_MUTANTS}.has(id)) {
       if (ns.${ID.HIT_COUNT} !== void 0 && ++ns.${ID.HIT_COUNT} > ns.${ID.HIT_LIMIT}) {
         throw new Error('Stryker: Hit count limit reached (' + ns.${ID.HIT_COUNT} + ')');
       }

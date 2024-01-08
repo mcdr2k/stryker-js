@@ -10,6 +10,8 @@ export const INSTRUMENTER_CONSTANTS = Object.freeze({
   CURRENT_TEST_ID: identity('currentTestId'),
   HIT_COUNT: identity('hitCount'),
   HIT_LIMIT: identity('hitLimit'),
+  HIT_COUNTS: identity('hitCounts'),
+  HIT_LIMITS: identity('hitLimits'),
   ACTIVE_MUTANT_ENV_VARIABLE: '__STRYKER_ACTIVE_MUTANT__',
 } as const);
 
@@ -21,16 +23,21 @@ export interface InstrumenterContext {
   hitLimit?: number;
 }
 
-function identity<T extends keyof InstrumenterContext>(key: T): T {
+function identity<T extends keyof SimultaneousInstrumenterContext>(key: T): T {
   return key;
+}
+
+export interface SimultaneousInstrumenterContext extends InstrumenterContext {
+  hitCounts?: Map<string, number>;
+  hitLimits?: Map<string, number>;
 }
 
 /**
  * Wrapper for the {@link InstrumenterContext} interface, providing useful utility functions for modifying
  * the context. Includes a static method for wrapping the global context.
  */
-export class InstrumenterContextWrapper implements InstrumenterContext {
-  constructor(private readonly context: InstrumenterContext) {}
+export class InstrumenterContextWrapper implements SimultaneousInstrumenterContext {
+  constructor(private readonly context: SimultaneousInstrumenterContext = {}) {}
 
   /**
    * Creates a new wrapper based on the global instrumenter context. Note: if the global context was undefined
@@ -39,7 +46,7 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
    * @returns A (new) wrapped instrumenter context.
    */
   public static WrapGlobalContext(globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__'): InstrumenterContextWrapper {
-    const context: InstrumenterContext = global[globalNamespace] ?? (global[globalNamespace] = {});
+    const context: SimultaneousInstrumenterContext = global[globalNamespace] ?? (global[globalNamespace] = {});
     return new InstrumenterContextWrapper(context);
   }
 
@@ -86,12 +93,56 @@ export class InstrumenterContextWrapper implements InstrumenterContext {
     return this.context.mutantCoverage;
   }
 
+  public clearHitCount(): void {
+    this.hitCount = undefined;
+    this.hitCounts = undefined;
+  }
+
+  public addHitCount(id: string, count = 0): void {
+    if (!this.hitCounts) {
+      this.hitCounts = new Map();
+    }
+    this.hitCount = count;
+    this.hitCounts.set(id, count);
+  }
+
+  public set hitCounts(value: Map<string, number> | undefined) {
+    this.hitCount = value ? value.values().next().value : undefined;
+    this.context.hitCounts = value;
+  }
+
+  public get hitCounts(): Map<string, number> | undefined {
+    return this.context.hitCounts;
+  }
+
   public set hitCount(value: number | undefined) {
     this.context.hitCount = value;
   }
 
   public get hitCount(): number | undefined {
     return this.context.hitCount;
+  }
+
+  public clearHitLimit(): void {
+    this.hitLimit = undefined;
+    this.hitLimits = undefined;
+  }
+
+  public addHitLimit(id: string, limit: number): void {
+    if (!this.hitLimits) {
+      this.hitLimits = new Map();
+    }
+    this.hitLimit = limit;
+    this.hitLimits.set(id, limit);
+  }
+
+  public set hitLimits(value: Map<string, number> | undefined) {
+    this.hitLimit = value ? value.values().next().value : undefined;
+    this.context.hitLimits = value;
+  }
+
+  public get hitLimits(): Map<string, number> | undefined {
+    return this.context.hitLimits;
   }
 
   public set hitLimit(value: number | undefined) {
