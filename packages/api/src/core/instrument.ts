@@ -21,23 +21,20 @@ export interface InstrumenterContext {
   mutantCoverage?: MutantCoverage;
   hitCount?: number;
   hitLimit?: number;
-}
-
-function identity<T extends keyof SimultaneousInstrumenterContext>(key: T): T {
-  return key;
-}
-
-export interface SimultaneousInstrumenterContext extends InstrumenterContext {
   hitCounts?: Map<string, number>;
   hitLimits?: Map<string, number>;
+}
+
+function identity<T extends keyof InstrumenterContext>(key: T): T {
+  return key;
 }
 
 /**
  * Wrapper for the {@link InstrumenterContext} interface, providing useful utility functions for modifying
  * the context. Includes a static method for wrapping the global context.
  */
-export class InstrumenterContextWrapper implements SimultaneousInstrumenterContext {
-  constructor(private readonly context: SimultaneousInstrumenterContext = {}) {}
+export class InstrumenterContextWrapper implements InstrumenterContext {
+  constructor(private readonly context: InstrumenterContext = {}) {}
 
   /**
    * Creates a new wrapper based on the global instrumenter context. Note: if the global context was undefined
@@ -46,7 +43,7 @@ export class InstrumenterContextWrapper implements SimultaneousInstrumenterConte
    * @returns A (new) wrapped instrumenter context.
    */
   public static WrapGlobalContext(globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__'): InstrumenterContextWrapper {
-    const context: SimultaneousInstrumenterContext = global[globalNamespace] ?? (global[globalNamespace] = {});
+    const context: InstrumenterContext = global[globalNamespace] ?? (global[globalNamespace] = {});
     return new InstrumenterContextWrapper(context);
   }
 
