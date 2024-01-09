@@ -35,24 +35,29 @@ export class FileCommunicator {
   }
 
   public async setMutantRun(options: MutantRunOptions): Promise<void> {
+    // todo: verify
+    const { hitLimit } = options;
+    const { id } = options.activeMutant;
+    const hitCountValue = hitLimit === undefined ? undefined : `new Map([['${id}', 0]])`;
+    const hitLimitValue = hitLimit === undefined ? undefined : `new Map([['${id}', ${hitLimit}]])`;
     await fs.writeFile(
       this.vitestSetup,
       this.setupFileTemplate(`
-      ns.hitLimit = ${options.hitLimit};
+      ns.hitLimits = ${hitLimitValue};
       beforeAll(() => {
-        ns.hitCount = 0;
+        ns.hitCounts = ${hitCountValue};
       });
   
       ${
         options.mutantActivation === 'static'
-          ? `ns.activeMutants = new Set(['${options.activeMutant.id}']);`
+          ? `ns.activeMutants = new Set(['${id}']);`
           : `
             beforeEach(() => {
-              ns.activeMutants = new Set(['${options.activeMutant.id}']);
+              ns.activeMutants = new Set(['${id}']);
             });`
       }
       afterAll(async (suite) => {
-        suite.meta.hitCount = ns.hitCount;
+        suite.meta.hitCount = ns.hitCounts.values().next().value;
       });`),
     );
   }

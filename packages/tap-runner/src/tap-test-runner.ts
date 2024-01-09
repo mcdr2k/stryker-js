@@ -19,7 +19,7 @@ import {
   TimeoutDryRunResult,
   toMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
-import { InstrumenterContext, INSTRUMENTER_CONSTANTS, MutantCoverage, StrykerOptions } from '@stryker-mutator/api/core';
+import { InstrumenterContext, INSTRUMENTER_CONSTANTS, MutantCoverage, StrykerOptions, InstrumenterContextWrapper } from '@stryker-mutator/api/core';
 import { Logger } from '@stryker-mutator/api/logging';
 import { normalizeFileName } from '@stryker-mutator/util';
 
@@ -145,12 +145,23 @@ export class TapTestRunner extends SingularTestRunner {
     const fileName = tempTapOutputFileName(tapProcess.pid);
     const fileContent = await fs.readFile(fileName, 'utf-8');
     await fs.rm(fileName);
-    const file = JSON.parse(fileContent) as InstrumenterContext;
+    // todo: verify
+    const file = new InstrumenterContextWrapper(JSON.parse(fileContent, TapTestRunner.reviver) as InstrumenterContext);
     const hitLimitReached = determineHitLimitReached(file.hitCount, testOptions.hitLimit);
     if (hitLimitReached) {
       throw new HitLimitError(hitLimitReached);
     }
     return { testResult: this.tapResultToTestResult(testFile, result, timeSpentMs), coverage: file.mutantCoverage };
+  }
+
+  private static reviver(key: any, value: any) {
+    if (typeof value === 'object' && value !== null) {
+      if (value.dataType === 'Map') {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+        return new Map(value.value);
+      }
+    }
+    return value;
   }
 
   private tapResultToTestResult(fileName: string, { result, failedTests }: TapResult, timeSpentMs: number): TestResult {

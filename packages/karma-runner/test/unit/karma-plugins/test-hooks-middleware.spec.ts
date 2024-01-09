@@ -69,7 +69,7 @@ describe(TestHooksMiddleware.name, () => {
 
     it('should set the "activeMutant" id', () => {
       sut.configureMutantRun(factory.mutantRunOptions({ activeMutant: factory.mutant({ id: '42' }) }));
-      expect(sut.currentTestHooks).contains('window.__stryker__.activeMutants = new Set(["42"])');
+      expect(sut.currentTestHooks).contains("window.__stryker__.activeMutants = new Set(['42'])");
     });
 
     it("should ignore the test filter if the current test framework doesn't support it", () => {
@@ -108,15 +108,15 @@ describe(TestHooksMiddleware.name, () => {
     });
 
     it('should configure the hitLimit and hitCount', () => {
-      sut.configureMutantRun(factory.mutantRunOptions({ hitLimit: 500 }));
-      expect(sut.currentTestHooks).contains('window.__stryker__.hitCount = 0;');
-      expect(sut.currentTestHooks).contains('window.__stryker__.hitLimit = 500;');
+      sut.configureMutantRun(factory.mutantRunOptions({ activeMutant: factory.mutant({ id: '12' }), hitLimit: 500 }));
+      expect(sut.currentTestHooks).contains("window.__stryker__.hitCounts = new Map([['12', 0]]);");
+      expect(sut.currentTestHooks).contains("window.__stryker__.hitLimits = new Map([['12', 500]]);");
     });
 
     it('should set hitCount to undefined when there is no hitLimit', () => {
       sut.configureMutantRun(factory.mutantRunOptions({ hitLimit: undefined }));
-      expect(sut.currentTestHooks).contains('window.__stryker__.hitCount = undefined;');
-      expect(sut.currentTestHooks).contains('window.__stryker__.hitLimit = undefined;');
+      expect(sut.currentTestHooks).contains('window.__stryker__.hitCounts = undefined;');
+      expect(sut.currentTestHooks).contains('window.__stryker__.hitLimits = undefined;');
     });
   });
 

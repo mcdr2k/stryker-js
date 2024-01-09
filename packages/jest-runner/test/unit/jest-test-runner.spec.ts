@@ -6,7 +6,7 @@ import { testInjector, factory, assertions } from '@stryker-mutator/test-helpers
 import { expect } from 'chai';
 import sinon from 'sinon';
 import { DryRunStatus, TestStatus, CompleteDryRunResult, ErrorDryRunResult, TestRunnerCapabilities } from '@stryker-mutator/api/test-runner';
-import { INSTRUMENTER_CONSTANTS, MutantCoverage } from '@stryker-mutator/api/core';
+import { INSTRUMENTER_CONSTANTS, InstrumenterContextWrapper, MutantCoverage } from '@stryker-mutator/api/core';
 import { Config } from '@jest/types';
 import { Task } from '@stryker-mutator/util';
 
@@ -613,7 +613,10 @@ describe(JestTestRunner.name, () => {
     const sut = createSut();
     await sut.init();
     jestTestAdapterMock.run.callsFake(async () => {
-      state.instrumenterContext.assignHitCount(option.activeMutant.id, hitCount);
+      // todo: verify
+      const wrapper = new InstrumenterContextWrapper(state.instrumenterContext);
+      wrapper.assignHitCount(option.activeMutant.id, hitCount);
+      //state.instrumenterContext.assignHitCount(option.activeMutant.id, hitCount);
       return jestRunResult;
     });
     const result = await sut.mutantRun(option);

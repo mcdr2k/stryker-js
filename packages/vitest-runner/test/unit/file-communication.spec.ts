@@ -75,7 +75,7 @@ describe(FileCommunicator.name, () => {
       await sut.setMutantRun(factory.mutantRunOptions());
       assertVitestSetupContains(
         `afterAll(async (suite) => {
-          suite.meta.hitCount = ns.hitCount;
+          suite.meta.hitCount = ns.hitCounts.values().next().value;
         })`,
       );
     });

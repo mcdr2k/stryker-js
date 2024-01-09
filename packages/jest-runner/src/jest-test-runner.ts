@@ -1,7 +1,7 @@
 import path from 'path';
 import { createRequire } from 'module';
 
-import { StrykerOptions, INSTRUMENTER_CONSTANTS, CoverageAnalysis } from '@stryker-mutator/api/core';
+import { StrykerOptions, INSTRUMENTER_CONSTANTS, CoverageAnalysis, InstrumenterContextWrapper } from '@stryker-mutator/api/core';
 import { Logger } from '@stryker-mutator/api/logging';
 import { commonTokens, Injector, PluginContext, tokens } from '@stryker-mutator/api/plugin';
 import {
@@ -131,8 +131,12 @@ export class JestTestRunner extends SingularTestRunner {
     if (testFilter) {
       testNamePattern = testFilter.map((testId) => `(${escapeRegExp(testId)})`).join('|');
     }
-    state.instrumenterContext.hitLimit = hitLimit;
-    state.instrumenterContext.hitCount = hitLimit ? 0 : undefined;
+    // todo: verify
+    const wrapper = new InstrumenterContextWrapper(state.instrumenterContext);
+    wrapper.assignHitLimit(activeMutant.id, hitLimit);
+    wrapper.assignHitCount(activeMutant.id, hitLimit ? 0 : undefined);
+    //state.instrumenterContext.hitLimit = hitLimit;
+    //state.instrumenterContext.hitCount = hitLimit ? 0 : undefined;
 
     try {
       // Use process.env to set the active mutant.
@@ -191,7 +195,9 @@ export class JestTestRunner extends SingularTestRunner {
   }
 
   private collectRunResult(results: jestTestResult.AggregatedResult): DryRunResult {
-    const timeoutResult = determineHitLimitReached(state.instrumenterContext.hitCount, state.instrumenterContext.hitLimit);
+    // todo: verify
+    const wrapper = new InstrumenterContextWrapper(state.instrumenterContext);
+    const timeoutResult = determineHitLimitReached(wrapper.hitCount, wrapper.hitLimit);
     if (timeoutResult) {
       return timeoutResult;
     }

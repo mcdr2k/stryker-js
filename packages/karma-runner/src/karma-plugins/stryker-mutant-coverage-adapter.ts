@@ -16,8 +16,8 @@ window.__karma__.complete = (...args) => {
   if (window.__strykerShouldReportCoverage__) {
     firstArg().mutantCoverage = context.mutantCoverage;
   }
-  if (context.hitCount !== undefined) {
-    firstArg().hitCount = context.hitCount;
+  if (context.hitCounts !== undefined) {
+    firstArg().hitCount = context.hitCounts.values().next().value;
   }
   originalComplete(...args);
 };

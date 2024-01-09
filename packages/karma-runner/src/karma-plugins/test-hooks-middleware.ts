@@ -25,7 +25,7 @@ function isSupportedFramework(framework: string): framework is SupportedFramewor
  */
 const SHOULD_REPORT_COVERAGE_FLAG = '__strykerShouldReportCoverage__';
 
-const { ACTIVE_MUTANTS, NAMESPACE, CURRENT_TEST_ID, HIT_COUNT, HIT_LIMIT } = INSTRUMENTER_CONSTANTS;
+const { ACTIVE_MUTANTS, NAMESPACE, CURRENT_TEST_ID, HIT_COUNTS, HIT_LIMITS } = INSTRUMENTER_CONSTANTS;
 
 export class TestHooksMiddleware {
   private static _instance?: TestHooksMiddleware;
@@ -60,8 +60,8 @@ export class TestHooksMiddleware {
   public configureMutantRun({ activeMutant, testFilter, hitLimit }: MutantRunOptions): void {
     this.configureCoverageAnalysis('off');
     this.currentTestHooks += `window.${NAMESPACE} = window.${NAMESPACE} || {};`;
-    this.currentTestHooks += this.configureHitLimit(hitLimit);
-    this.currentTestHooks += `window.${NAMESPACE}.${ACTIVE_MUTANTS} = new Set(["${activeMutant.id}"]);`;
+    this.currentTestHooks += this.configureHitLimit(activeMutant.id, hitLimit);
+    this.currentTestHooks += `window.${NAMESPACE}.${ACTIVE_MUTANTS} = new Set(['${activeMutant.id}']);`;
     if (testFilter) {
       switch (this.testFramework) {
         case 'jasmine':
@@ -78,9 +78,14 @@ export class TestHooksMiddleware {
     }
   }
 
-  private configureHitLimit(hitLimit: number | undefined) {
-    return `window.${NAMESPACE}.${HIT_COUNT} = ${hitLimit === undefined ? undefined : 0};
-    window.${NAMESPACE}.${HIT_LIMIT} = ${hitLimit};`;
+  // todo: verify
+  private configureHitLimit(id: string, hitLimit: number | undefined) {
+    const hitCountValue = hitLimit === undefined ? undefined : `new Map([['${id}', 0]])`;
+    const hitLimitValue = hitLimit === undefined ? undefined : `new Map([['${id}', ${hitLimit}]])`;
+    return `window.${NAMESPACE}.${HIT_COUNTS} = ${hitCountValue};
+    window.${NAMESPACE}.${HIT_LIMITS} = ${hitLimitValue};`;
+    // return `window.${NAMESPACE}.${HIT_COUNTS} = ${hitLimit === undefined ? undefined : 0};
+    // window.${NAMESPACE}.${HIT_LIMITS} = ${hitLimit};`;
   }
 
   private configurePerTestCoverageAnalysis() {
