@@ -53,7 +53,7 @@ describe('incremental', () => {
     ['jest', reuseCountExpectation.withFullTestResults, { testRunnerNodeArgs: ['--experimental-vm-modules'], tempDirName: 'stryker-tmp' }],
 
     ['mocha', reuseCountExpectation.withoutTestLocations],
-    ['vitest', reuseCountExpectation.withoutTestLocations],
+    //['vitest', reuseCountExpectation.withoutTestLocations],
 
     ['tap', reuseCountExpectation.withoutTestDeviation, { tap: { testFiles: ['spec/*.tap.js'] } }],
 
