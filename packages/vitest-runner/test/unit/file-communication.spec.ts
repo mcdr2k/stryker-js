@@ -32,9 +32,9 @@ describe(FileCommunicator.name, () => {
   });
 
   describe(FileCommunicator.prototype.setDryRun.name, () => {
-    it('should write activeMutant to undefined', async () => {
+    it('should write activeMutants to undefined', async () => {
       await sut.setDryRun();
-      assertVitestSetupContains('activeMutant = undefined;');
+      assertVitestSetupContains('activeMutants = undefined;');
     });
     it('should use globalNamespace', async () => {
       await sut.setDryRun();
@@ -75,7 +75,9 @@ describe(FileCommunicator.name, () => {
       await sut.setMutantRun(factory.mutantRunOptions());
       assertVitestSetupContains(
         `afterAll(async (suite) => {
-          suite.meta.hitCount = ns.hitCounts.values().next().value;
+          if (ns.hitCounts) {
+            suite.meta.hitCount = ns.hitCounts.values().next().value;
+          }
         })`,
       );
     });

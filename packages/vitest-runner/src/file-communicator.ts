@@ -16,7 +16,7 @@ export class FileCommunicator {
       // Write hit count, hit limit, isDryRun, global namespace, etc. Altogether in 1 file
       this.vitestSetup,
       this.setupFileTemplate(`
-      ns.activeMutant = undefined;
+      ns.activeMutants = undefined;
       ${collectTestName.toString()}
       ${toTestId.toString()}
   
@@ -57,7 +57,9 @@ export class FileCommunicator {
             });`
       }
       afterAll(async (suite) => {
-        suite.meta.hitCount = ns.hitCounts.values().next().value;
+        if (ns.hitCounts) {
+          suite.meta.hitCount = ns.hitCounts.values().next().value;
+        }
       });`),
     );
   }
