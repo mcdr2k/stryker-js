@@ -14,7 +14,9 @@ import {
   determineHitLimitReached,
   TestRunnerCapabilities,
   MutantActivation,
-  SingularTestRunner,
+  SimultaneousTestRunner,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 
 import { Context, RootHookObject, Suite } from 'mocha';
@@ -25,7 +27,7 @@ import * as pluginTokens from './plugin-tokens.js';
 import { MochaOptionsLoader } from './mocha-options-loader.js';
 import { MochaAdapter } from './mocha-adapter.js';
 
-export class MochaTestRunner extends SingularTestRunner {
+export class MochaTestRunner extends SimultaneousTestRunner {
   private mocha!: Mocha;
   private readonly instrumenterContext: InstrumenterContextWrapper;
   private originalGrep?: string;
@@ -55,6 +57,8 @@ export class MochaTestRunner extends SingularTestRunner {
     return {
       // Mocha directly uses `import`, so reloading files once they are loaded is impossible
       reloadEnvironment: false,
+      simultaneousTesting: true,
+      smartBail: false,
     };
   }
 
@@ -123,6 +127,117 @@ export class MochaTestRunner extends SingularTestRunner {
     }
     const dryRunResult = await this.run(disableBail, activeMutant.id, mutantActivation);
     return toMutantRunResult(dryRunResult);
+  }
+
+  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    this.instrumenterContext.clearHitLimits();
+    this.instrumenterContext.clearHitCounts();
+    let hasFilter = undefined;
+    const metaRegExps = [];
+    for (const option of options.mutantRunOptions) {
+      if (option.hitLimit) {
+        this.instrumenterContext.addHitLimit(option.activeMutant.id, option.hitLimit);
+        this.instrumenterContext.addHitCount(option.activeMutant.id);
+      }
+
+      if (option.testFilter) {
+        if (hasFilter === false) {
+          throw new Error('Impossible state: a simultaneous mutant before the current one did not define a test filter');
+        }
+        hasFilter = true;
+        metaRegExps.push(option.testFilter.map((testId) => `(${escapeRegExp(testId)})`).join('|'));
+      } else if (hasFilter) {
+        // if this happens, all tests need to be executed; for now don't accept it at all
+        throw new Error('Impossible state: the simultaneous mutants combined do not all define a test filter');
+      }
+    }
+
+    if (hasFilter) {
+      this.mocha.grep(new RegExp(metaRegExps.join('|')));
+    } else {
+      this.setIfDefined(this.originalGrep, this.mocha.grep);
+    }
+
+    const dryRunResult = await this.simultaneousRun(
+      true,
+      options.mutantRunOptions.map((m) => m.activeMutant.id),
+      options.mutantActivation,
+    );
+    //return toMutantRunResult(dryRunResult);
+    // todo:
+    if (dryRunResult.status === DryRunStatus.Complete) {
+      dryRunResult.tests[0].fileName;
+    }
+    throw new Error('Not implemented');
+  }
+
+  public async simultaneousRun(disableBail: boolean, activeMutantIds: string[], mutantActivation: MutantActivation): Promise<DryRunResult> {
+    setBail(!disableBail, this.mocha.suite);
+
+    try {
+      if (!this.loadedEnv) {
+        if (activeMutantIds.length === 1 && mutantActivation === 'static') {
+          this.instrumenterContext.setActiveMutants(activeMutantIds[0]);
+        } else if (activeMutantIds.length > 1) {
+          throw new Error('Impossible state: multiple static mutants');
+        } else {
+          this.instrumenterContext.activeMutants = undefined;
+        }
+        // Loading files Async is needed to support native esm modules
+        // See https://mochajs.org/api/mocha#loadFilesAsync
+        await this.mocha.loadFilesAsync();
+        this.loadedEnv = true;
+      }
+      this.instrumenterContext.activeMutants = activeMutantIds.length > 0 ? new Set(activeMutantIds) : undefined;
+      await this.runMocha();
+
+      // todo: fix results
+      const reporter = StrykerMochaReporter.currentInstance;
+      if (reporter) {
+        return formulateSimultaneousResults(reporter, this.instrumenterContext, activeMutantIds);
+      } else {
+        const errorMessage = `Mocha didn't instantiate the ${StrykerMochaReporter.name} correctly. Test result cannot be reported.`;
+        this.log.error(errorMessage);
+        return {
+          status: DryRunStatus.Error,
+          errorMessage,
+        };
+      }
+    } catch (errorMessage: any) {
+      return {
+        errorMessage,
+        status: DryRunStatus.Error,
+      };
+    }
+
+    function formulateSimultaneousResults(
+      reporter: I<StrykerMochaReporter>,
+      context: InstrumenterContextWrapper,
+      activeMutantIds: string[],
+    ): DryRunResult {
+      const results = [];
+      for (const id of activeMutantIds) {
+        const timeoutResult = determineHitLimitReached(context.getHitCount(id), context.getHitLimit(id));
+        if (timeoutResult) {
+          results.push(timeoutResult);
+        } else {
+          results.push({
+            status: DryRunStatus.Complete,
+            tests: reporter.tests,
+          });
+        }
+      }
+      const result: CompleteDryRunResult = {
+        status: DryRunStatus.Complete,
+        tests: reporter.tests,
+      };
+      return result;
+    }
+
+    function setBail(bail: boolean, suite: Suite) {
+      suite.bail(bail);
+      suite.suites.forEach((childSuite) => setBail(bail, childSuite));
+    }
   }
 
   public async run(disableBail: boolean, activeMutantId?: string, mutantActivation?: MutantActivation): Promise<DryRunResult> {
