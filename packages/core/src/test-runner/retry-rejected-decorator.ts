@@ -1,4 +1,14 @@
-import { DryRunStatus, DryRunResult, DryRunOptions, MutantRunResult, MutantRunOptions, MutantRunStatus } from '@stryker-mutator/api/test-runner';
+import {
+  DryRunStatus,
+  DryRunResult,
+  DryRunOptions,
+  MutantRunResult,
+  MutantRunOptions,
+  MutantRunStatus,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
+  SimultaneousMutantRunStatus,
+} from '@stryker-mutator/api/test-runner';
 import { errorToString } from '@stryker-mutator/util';
 import log4js from 'log4js';
 
@@ -60,6 +70,43 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
     } else {
       await this.recover();
       return `${ERROR_MESSAGE}${errorToString(lastError)}`;
+    }
+  }
+
+  private async simRun(
+    options: SimultaneousMutantRunOptions,
+    attemptsLeft = MAX_RETRIES,
+    lastError?: unknown,
+  ): Promise<SimultaneousMutantRunResult | string> {
+    if (attemptsLeft > 0) {
+      try {
+        return await super.simultaneousMutantRun(options);
+      } catch (error) {
+        if (error instanceof OutOfMemoryError) {
+          this.log.info(
+            "Test runner process [%s] ran out of memory. You probably have a memory leak in your tests. Don't worry, Stryker will restart the process, but you might want to investigate this later, because this decreases performance.",
+            error.pid,
+          );
+        }
+        await this.recover();
+        return this.simRun(options, attemptsLeft - 1, error);
+      }
+    } else {
+      await this.recover();
+      return `${ERROR_MESSAGE}${errorToString(lastError)}`;
+    }
+  }
+
+  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    const result = await this.simRun(options);
+
+    if (typeof result === 'string') {
+      return {
+        status: SimultaneousMutantRunStatus.Invalid,
+        invalidResult: { status: MutantRunStatus.Error, errorMessage: result },
+      };
+    } else {
+      return result;
     }
   }
 }

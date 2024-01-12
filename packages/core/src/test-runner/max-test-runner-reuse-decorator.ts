@@ -1,4 +1,10 @@
-import { MutantRunOptions, MutantRunResult, TestRunner } from '@stryker-mutator/api/test-runner';
+import {
+  MutantRunOptions,
+  MutantRunResult,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
+  TestRunner,
+} from '@stryker-mutator/api/test-runner';
 
 import { StrykerOptions } from '@stryker-mutator/api/core';
 
@@ -25,6 +31,16 @@ export class MaxTestRunnerReuseDecorator extends TestRunnerDecorator {
     }
 
     return super.mutantRun(options);
+  }
+
+  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    this.runs++;
+    if (this.restartAfter > 0 && this.runs > this.restartAfter) {
+      await this.recover();
+      this.runs = 1;
+    }
+
+    return super.simultaneousMutantRun(options);
   }
 
   public dispose(): Promise<any> {

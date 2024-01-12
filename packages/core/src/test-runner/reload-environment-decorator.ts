@@ -1,4 +1,12 @@
-import { DryRunOptions, DryRunResult, MutantRunOptions, MutantRunResult, TestRunnerCapabilities } from '@stryker-mutator/api/test-runner';
+import {
+  DryRunOptions,
+  DryRunResult,
+  MutantRunOptions,
+  MutantRunResult,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
+  TestRunnerCapabilities,
+} from '@stryker-mutator/api/test-runner';
 
 import { TestRunnerDecorator } from './test-runner-decorator.js';
 
@@ -50,6 +58,36 @@ export class ReloadEnvironmentDecorator extends TestRunnerDecorator {
       }
     }
     const result = await super.mutantRun(options);
+    this.testEnvironment = newState;
+    return result;
+  }
+
+  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    let newState: TestEnvironmentState;
+    if (options.reloadEnvironment) {
+      newState = TestEnvironmentState.LoadedStaticMutant;
+
+      // If env is still pristine (first run), no reload is actually needed
+      options.reloadEnvironment = this.testEnvironment !== TestEnvironmentState.Pristine;
+
+      if (options.reloadEnvironment && !(await this.testRunnerIsCapableOfReload())) {
+        await this.recover();
+        options.reloadEnvironment = false;
+      }
+    } else {
+      // Reload might still be needed actually, since a static mutant could be loaded
+      newState = TestEnvironmentState.Loaded;
+      if (this.testEnvironment === TestEnvironmentState.LoadedStaticMutant) {
+        // Test env needs reloading
+        if (await this.testRunnerIsCapableOfReload()) {
+          options.reloadEnvironment = true;
+        } else {
+          // loaded a static mutant in previous run, need to reload first
+          await this.recover();
+        }
+      }
+    }
+    const result = await super.simultaneousMutantRun(options);
     this.testEnvironment = newState;
     return result;
   }

@@ -1,4 +1,14 @@
-import { DryRunStatus, DryRunResult, DryRunOptions, MutantRunOptions, MutantRunResult, MutantRunStatus } from '@stryker-mutator/api/test-runner';
+import {
+  DryRunStatus,
+  DryRunResult,
+  DryRunOptions,
+  MutantRunOptions,
+  MutantRunResult,
+  MutantRunStatus,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
+  SimultaneousMutantRunStatus,
+} from '@stryker-mutator/api/test-runner';
 import log4js from 'log4js';
 import { ExpirableTask } from '@stryker-mutator/util';
 
@@ -41,6 +51,18 @@ export class TimeoutDecorator extends TestRunnerDecorator {
     if (result === ExpirableTask.TimeoutExpired) {
       await this.handleTimeout();
       return result;
+    } else {
+      return result;
+    }
+  }
+
+  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    const result = await this.run(options, () => super.simultaneousMutantRun(options));
+    if (result === ExpirableTask.TimeoutExpired) {
+      return {
+        status: SimultaneousMutantRunStatus.Invalid,
+        invalidResult: { status: MutantRunStatus.Timeout },
+      };
     } else {
       return result;
     }
