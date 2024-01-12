@@ -86,6 +86,9 @@ export class MutantTestPlanner {
     const staticMutants = mutants.filter((m) => m.mutant.static ?? m.mutant.static === undefined);
     const mutantsToGroup = mutants.filter((m) => m.mutant.static === false);
 
+    let simultaneousMutantCount = 0;
+    let simultaneousGroupCount = 0;
+
     mutantsToGroup.sort(sortBasedOnTestSize);
     // todo: are there more constraints other than static and disjoint coverage?
     const mutantGroups = [];
@@ -103,10 +106,19 @@ export class MutantTestPlanner {
         mutantsToGroup.splice(i--, 1);
         simultaneousTestSet.push(...nextTestSet);
       }
+      if (nextGroup.length > 1) {
+        simultaneousMutantCount += nextGroup.length;
+        simultaneousGroupCount++;
+      }
       mutantGroups.push(MutantTestPlanner.planSimultaneousMutant(nextGroup));
     }
 
     mutantGroups.push(...staticMutants.map(MutantTestPlanner.planSingleSimultaneousMutant));
+    this.logger.info(
+      `Simple simultaneous test planner was able to form ${simultaneousGroupCount} mutant groups with an average order of ${
+        simultaneousMutantCount / Math.max(1, simultaneousGroupCount)
+      }. These groups were derived from a total of ${mutants.length} mutants.`,
+    );
     return mutantGroups;
 
     // todo: verify definition of testFilter, if undefined does that mean run all tests?

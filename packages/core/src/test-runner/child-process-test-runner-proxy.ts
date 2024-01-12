@@ -8,7 +8,9 @@ import {
   MutantRunResult,
   DryRunResult,
   TestRunnerCapabilities,
-  SingularTestRunner,
+  TestRunner,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import { ExpirableTask } from '@stryker-mutator/util';
 
@@ -25,7 +27,7 @@ const MAX_WAIT_FOR_DISPOSE = 2000;
 /**
  * Runs the given test runner in a child process and forwards reports about test results
  */
-export class ChildProcessTestRunnerProxy extends SingularTestRunner {
+export class ChildProcessTestRunnerProxy implements TestRunner {
   private readonly worker: ChildProcessProxy<ChildProcessTestRunnerWorker>;
 
   constructor(
@@ -37,7 +39,6 @@ export class ChildProcessTestRunnerProxy extends SingularTestRunner {
     private readonly log: Logger,
     idGenerator: IdGenerator,
   ) {
-    super();
     this.worker = ChildProcessProxy.create(
       new URL('./child-process-test-runner-worker.js', import.meta.url).toString(),
       loggingContext,
@@ -64,6 +65,9 @@ export class ChildProcessTestRunnerProxy extends SingularTestRunner {
   }
   public mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
     return this.worker.proxy.mutantRun(options);
+  }
+  public simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    return this.worker.proxy.simultaneousMutantRun(options);
   }
 
   public async dispose(): Promise<void> {

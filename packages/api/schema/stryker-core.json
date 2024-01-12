@@ -530,7 +530,7 @@
     "disableSimultaneousTesting" : {
       "description": "Disables the default of performing mutation testing with simultaneous mutants. When true, runs all mutants individually. This will reduce performance but may increase quality.",
       "type": "boolean",
-      "default": false
+      "default": true
     },
     "allowEmpty": {
       "description": "Allows stryker to exit without any errors in cases where no tests are found",

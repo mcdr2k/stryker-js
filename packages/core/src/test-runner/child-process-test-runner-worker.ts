@@ -9,18 +9,20 @@ import {
   DryRunStatus,
   MutantRunStatus,
   TestRunnerCapabilities,
-  SingularTestRunner,
+  SimultaneousMutantRunOptions,
+  SimultaneousMutantRunResult,
+  SimultaneousMutantRunStatus,
+  InvalidSimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import { errorToString } from '@stryker-mutator/util';
 
 import { coreTokens, PluginCreator } from '../di/index.js';
 
-export class ChildProcessTestRunnerWorker extends SingularTestRunner {
+export class ChildProcessTestRunnerWorker implements TestRunner {
   private readonly underlyingTestRunner: TestRunner;
 
   public static inject = tokens(commonTokens.options, coreTokens.pluginCreator);
   constructor({ testRunner }: StrykerOptions, pluginCreator: PluginCreator) {
-    super();
     this.underlyingTestRunner = pluginCreator.create(PluginKind.TestRunner, testRunner);
   }
 
@@ -55,6 +57,23 @@ export class ChildProcessTestRunnerWorker extends SingularTestRunner {
     const result = await this.underlyingTestRunner.mutantRun(options);
     if (result.status === MutantRunStatus.Error) {
       result.errorMessage = errorToString(result.errorMessage);
+    }
+    return result;
+  }
+
+  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    const result = await this.underlyingTestRunner.simultaneousMutantRun(options);
+    if (result.status === SimultaneousMutantRunStatus.Invalid) {
+      const invalid = result.invalidResult;
+      if (invalid.status === MutantRunStatus.Error) {
+        invalid.errorMessage = errorToString(invalid.errorMessage);
+      }
+    } else if (result.status === SimultaneousMutantRunStatus.Valid) {
+      for (const mutantResult of result.results) {
+        if (mutantResult.status === MutantRunStatus.Error) {
+          mutantResult.errorMessage = errorToString(mutantResult.errorMessage);
+        }
+      }
     }
     return result;
   }
