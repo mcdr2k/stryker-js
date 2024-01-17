@@ -46,7 +46,8 @@ const CHECK_BUFFER_MS = 10_000;
  * @see https://github.com/stryker-mutator/stryker-js/issues/3462
  */
 const BUFFER_FOR_SORTING_MS = 0;
-const MUTANT_COUNT_SIMULTANEOUS_TESTING_THRESHOLD = 100;
+const MUTANT_COUNT_SIMULTANEOUS_TESTING_THRESHOLD = 2; // 100?
+const MARK_MUTATION_TEST_START = 'MUTATION_RUN';
 
 export class MutationTestExecutor {
   public static inject = tokens(
@@ -77,9 +78,11 @@ export class MutationTestExecutor {
     private readonly timer: I<Timer>,
     private readonly concurrencyTokenProvider: I<ConcurrencyTokenProvider>,
     private readonly dryRunResult: CompleteDryRunResult,
+    private markedMutationTestStart = false,
   ) {}
 
   public async execute(): Promise<MutantResult[]> {
+    this.markedMutationTestStart = false;
     if (this.options.dryRunOnly) {
       this.log.info('The dry-run has been completed successfully. No mutations have been executed.');
       return [];
@@ -102,9 +105,14 @@ export class MutationTestExecutor {
       const simultaneousMutantRunPlan$ = from(await this.planner.makeSimultaneousPlan(coveredMutantArray, this.dryRunResult.tests.length));
       testRunnerResult$ = this.executeSimultaneousRunInTestRunner(simultaneousMutantRunPlan$);
     } else {
-      testRunnerResult$ = this.executeRunInTestRunner(coveredMutant$);
+      // todo: remove this, testing purposes only
+      const coveredMutantDelayed = await lastValueFrom(coveredMutant$.pipe(toArray()));
+      testRunnerResult$ = this.executeRunInTestRunner(from(coveredMutantDelayed));
+      // original code:
+      //testRunnerResult$ = this.executeRunInTestRunner(coveredMutant$);
     }
     const results = await lastValueFrom(merge(testRunnerResult$, checkResult$, noCoverageResult$, earlyResult$).pipe(toArray()));
+    this.logMutationRunDone();
     await this.mutationTestReportHelper.reportAll(results);
     await this.reporter.wrapUp();
     this.logDone();
@@ -131,6 +139,7 @@ export class MutationTestExecutor {
       mergeMap((plans) => plans.sort(reloadEnvironmentLast)),
     );
     return this.testRunnerPool.schedule(sortedPlan$, async (testRunner, { mutant, runOptions }) => {
+      this.markMutationTestStart();
       const result = await testRunner.mutantRun(runOptions);
       return this.mutationTestReportHelper.reportMutantRunResult(mutant, result);
     });
@@ -145,14 +154,28 @@ export class MutationTestExecutor {
       .schedule(sortedPlan$, async (testRunner, { mutants, runOptions }) => {
         // todo: ensure that #simultaneousMutantRun's result always has the results of
         // the mutants in the same order as presented in the mutants input
+        if (this.log.isDebugEnabled() && runOptions.mutantRunOptions.length > 1) {
+          this.log.debug(`Attempting to run simultaneous mutant: ${JSON.stringify(runOptions, null, 2)}`);
+        }
+        this.markMutationTestStart();
         const result = await testRunner.simultaneousMutantRun(runOptions);
         return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(mutants, result);
       })
       .pipe(mergeAll());
   }
 
+  private logMutationRunDone() {
+    this.log.info('Finished running mutants in %s.', this.timer.humanReadableElapsed(MARK_MUTATION_TEST_START));
+  }
+
   private logDone() {
     this.log.info('Done in %s.', this.timer.humanReadableElapsed());
+  }
+
+  private markMutationTestStart() {
+    if (this.markedMutationTestStart) return;
+    this.timer.mark(MARK_MUTATION_TEST_START);
+    this.markedMutationTestStart = true;
   }
 
   /**

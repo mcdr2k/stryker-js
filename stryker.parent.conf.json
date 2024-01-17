@@ -2,7 +2,9 @@
   "$schema": "./packages/core/schema/stryker-schema.json",
   "coverageAnalysis": "perTest",
   "testRunner": "mocha",
-  "disableSimultaneousTesting": true,
+  "disableSimultaneousTesting": false,
+  "disableBail": false,
+  "fileLogLevel": "info",
   "reporters": [
     "json",
     "progress",

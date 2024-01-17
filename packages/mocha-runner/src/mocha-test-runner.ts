@@ -161,7 +161,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     }
 
     return this.simultaneousRun(
-      // default to true since we do not support smart bail
+      // default to true since we do not support smart bail (at the moment)
       options.mutantRunOptions.length <= 1 ? options.disableBail : true,
       options.mutantRunOptions,
       options.mutantActivation,
@@ -209,6 +209,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
         };
       }
     } catch (errorMessage: any) {
+      this.log.info(`Simultaneous run failed with message: ${errorMessage}`);
       return {
         status: SimultaneousMutantRunStatus.Invalid,
         invalidResult: { status: MutantRunStatus.Error, errorMessage },

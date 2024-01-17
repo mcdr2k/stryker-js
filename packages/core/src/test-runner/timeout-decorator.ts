@@ -8,6 +8,7 @@ import {
   SimultaneousMutantRunOptions,
   SimultaneousMutantRunResult,
   SimultaneousMutantRunStatus,
+  decomposeSimultaneousMutantRunOptions,
 } from '@stryker-mutator/api/test-runner';
 import log4js from 'log4js';
 import { ExpirableTask } from '@stryker-mutator/util';
@@ -59,13 +60,40 @@ export class TimeoutDecorator extends TestRunnerDecorator {
   public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
     const result = await this.run(options, () => super.simultaneousMutantRun(options));
     if (result === ExpirableTask.TimeoutExpired) {
-      return {
-        status: SimultaneousMutantRunStatus.Invalid,
-        invalidResult: { status: MutantRunStatus.Timeout },
-      };
+      if (options.mutantRunOptions.length === 1) {
+        return {
+          status: SimultaneousMutantRunStatus.Valid,
+          results: [{ status: MutantRunStatus.Timeout }],
+        };
+      }
+      const group = options.mutantRunOptions.map((o) => o.activeMutant.id);
+      this.log.info(`Mutant group (${group}) timed out, attempting to rerun the simultaneous mutants individually`);
+      //return this.decomposedSimultaneousMutantRun(options);
+      return this.simpleDecomposedSimultaneousMutantRun(options, group);
     } else {
       return result;
     }
+  }
+
+  private async simpleDecomposedSimultaneousMutantRun(options: SimultaneousMutantRunOptions, group: string[]): Promise<SimultaneousMutantRunResult> {
+    const decomposed = decomposeSimultaneousMutantRunOptions(options);
+    const results = [];
+    // todo: verify
+    // does this work when one of the decomposed runs fail?
+    for (const mutant of decomposed) {
+      if (mutant.mutantRunOptions.length !== 1) throw new Error('Decomposed run had an order other than 1');
+      const result = await this.simultaneousMutantRun(mutant);
+      if (result.status === SimultaneousMutantRunStatus.Valid) {
+        results.push(result.results[0]);
+      } else {
+        results.push(result.invalidResult);
+      }
+    }
+    this.log.info(`Decomposed mutant group (${group}) was able to evaluate the simultaneous mutants appropriately`);
+    return {
+      status: SimultaneousMutantRunStatus.Valid,
+      results,
+    };
   }
 
   private async handleTimeout(): Promise<void> {

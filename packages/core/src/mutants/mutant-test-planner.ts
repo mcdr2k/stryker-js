@@ -82,9 +82,16 @@ export class MutantTestPlanner {
    * from {@link https://github.com/stryker-mutator/stryker-net/blob/master/src/Stryker.Core/Stryker.Core/MutationTest/MutationTestProcess.cs#L190 Stryker.NET's algorithm}.
    */
   private makeSimpleSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number): SimultaneousMutantRunPlan[] {
-    // static mutants cannot be grouped (assumption)
-    const staticMutants = mutants.filter((m) => m.mutant.static ?? m.mutant.static === undefined);
-    const mutantsToGroup = mutants.filter((m) => m.mutant.static === false);
+    const startTime = performance.now();
+
+    // static mutants, and mutants with no filter, cannot be grouped (assumption)
+    const staticAndNoFilterMutants = mutants.filter(
+      (m) => (m.mutant.static ?? m.mutant.static === undefined) || m.runOptions.testFilter === undefined,
+    );
+    const mutantsToGroup = mutants.filter((m) => m.mutant.static === false && m.runOptions.testFilter);
+    if (staticAndNoFilterMutants.length + mutantsToGroup.length !== mutants.length) {
+      throw new Error(`Invalid state: expected (${staticAndNoFilterMutants.length} + ${mutantsToGroup.length}) to equal ${mutants.length}`);
+    }
 
     let simultaneousMutantCount = 0;
     let simultaneousGroupCount = 0;
@@ -94,12 +101,12 @@ export class MutantTestPlanner {
     const mutantGroups = [];
     while (mutantsToGroup.length > 0) {
       // todo: what if coverage data is not available??
-      const simultaneousTestSet = mutantsToGroup[0].mutant.coveredBy ?? [];
+      const simultaneousTestSet = mutantsToGroup[0].runOptions.testFilter!;
       const nextGroup = [mutantsToGroup[0]];
       mutantsToGroup.splice(0, 1);
       for (let i = 0; i < mutantsToGroup.length; i++) {
         const currentMutant = mutantsToGroup[i];
-        const nextTestSet = currentMutant.mutant.coveredBy ?? [];
+        const nextTestSet = currentMutant.runOptions.testFilter!;
         if (simultaneousTestSet.length + nextTestSet.length > testCount) break;
         if (simultaneousTestSet.some((test) => nextTestSet.includes(test))) continue;
         nextGroup.push(currentMutant);
@@ -113,11 +120,12 @@ export class MutantTestPlanner {
       mutantGroups.push(MutantTestPlanner.planSimultaneousMutant(nextGroup));
     }
 
-    mutantGroups.push(...staticMutants.map(MutantTestPlanner.planSingleSimultaneousMutant));
+    mutantGroups.push(...staticAndNoFilterMutants.map(MutantTestPlanner.planSingleSimultaneousMutant));
+    const endTime = performance.now();
     this.logger.info(
       `Simple simultaneous test planner was able to form ${simultaneousGroupCount} mutant groups with an average order of ${
         simultaneousMutantCount / Math.max(1, simultaneousGroupCount)
-      }. These groups were derived from a total of ${mutants.length} mutants.`,
+      }. These groups were derived from a total of ${mutants.length} mutants. This operation took ${endTime - startTime} ms to finish.`,
     );
     return mutantGroups;
 

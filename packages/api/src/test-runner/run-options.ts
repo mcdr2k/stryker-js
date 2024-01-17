@@ -73,14 +73,18 @@ export function regularToSimultaneousMutantRunOptions(options: MutantRunOptions)
   return createSimultaneousMutantRunOptions(options);
 }
 
+export function decomposeSimultaneousMutantRunOptions(options: SimultaneousMutantRunOptions): SimultaneousMutantRunOptions[] {
+  return options.mutantRunOptions.map(regularToSimultaneousMutantRunOptions);
+}
+
 export function createSimultaneousMutantRunOptions(...options: MutantRunOptions[]): SimultaneousMutantRunOptions {
   if (options.length === 0) throw new Error('Need at least 1 option');
   return {
     mutantRunOptions: options,
     mutantActivation: determineMutantActivation(...options),
     reloadEnvironment: determineReloadEnvironment(...options),
-    timeout: options[0].timeout,
-    disableBail: options[0].disableBail,
+    timeout: determineTimeout(...options),
+    disableBail: determineDisableBail(...options),
   };
 }
 
@@ -93,5 +97,18 @@ function determineMutantActivation(...options: MutantRunOptions[]): MutantActiva
 
 function determineReloadEnvironment(...options: MutantRunOptions[]): boolean {
   for (const option of options) if (option.reloadEnvironment) return true;
+  return false;
+}
+
+// set timeout to be the sum of all mutants (todo: verify)
+// set timeout to be the maximum of all mutants
+function determineTimeout(...options: MutantRunOptions[]) {
+  return Math.max(...options.map((option) => option.timeout));
+  //return options.map((option) => option.timeout).reduce((sum, timeout) => sum + timeout, 0);
+}
+
+// if disableBail is true for any of the mutants, it is true for the combined mutants
+function determineDisableBail(...options: MutantRunOptions[]) {
+  for (const option of options) if (option.disableBail) return true;
   return false;
 }
