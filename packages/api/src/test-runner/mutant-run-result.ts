@@ -3,6 +3,7 @@ export enum MutantRunStatus {
   Survived = 'survived',
   Timeout = 'timeout',
   Error = 'error',
+  Pending = 'pending',
 }
 
 export type MutantRunResult = ErrorMutantRunResult | KilledMutantRunResult | SurvivedMutantRunResult | TimeoutMutantRunResult;
@@ -44,9 +45,17 @@ export interface ErrorMutantRunResult {
   errorMessage: string;
 }
 
+/**
+ * Indicates that the result of the mutant could not be determined because the test-runner was not done yet.
+ */
+export interface PendingMutantRunResult {
+  status: MutantRunStatus.Pending;
+}
+
 export enum SimultaneousMutantRunStatus {
   Valid = 'valid',
   Invalid = 'invalid',
+  Partial = 'partial',
 }
 
 export type SimultaneousMutantRunResult = InvalidSimultaneousMutantRunResult | ValidSimultaneousMutantRunResult;
@@ -59,4 +68,9 @@ export interface ValidSimultaneousMutantRunResult {
 export interface InvalidSimultaneousMutantRunResult {
   status: SimultaneousMutantRunStatus.Invalid;
   invalidResult: ErrorMutantRunResult | TimeoutMutantRunResult;
+}
+
+export interface PartialSimultaneousMutantRunResult {
+  status: SimultaneousMutantRunStatus.Partial;
+  partialResults: Array<MutantRunResult | PendingMutantRunResult>;
 }
