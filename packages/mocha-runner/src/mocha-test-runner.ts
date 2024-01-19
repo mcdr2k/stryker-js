@@ -20,7 +20,7 @@ import {
   SimultaneousMutantRunStatus,
   MutantRunStatus,
   PartialSimultaneousMutantRunResult,
-  TestStatus,
+  PendingMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 
 import { Context, RootHookObject, Suite } from 'mocha';
@@ -62,7 +62,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       // Mocha directly uses `import`, so reloading files once they are loaded is impossible
       reloadEnvironment: false,
       simultaneousTesting: true,
-      smartBail: false,
+      smartBail: true,
     };
   }
 
@@ -105,6 +105,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
   }
 
   public async dryRun({ coverageAnalysis, disableBail }: DryRunOptions): Promise<DryRunResult> {
+    StrykerMochaReporter.mutantRunOptions = undefined;
     if (coverageAnalysis === 'perTest') {
       this.beforeEach = (context) => {
         this.instrumenterContext.currentTestId = context.currentTest?.fullTitle();
@@ -119,6 +120,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
   }
 
   public override async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation }: MutantRunOptions): Promise<MutantRunResult> {
+    StrykerMochaReporter.mutantRunOptions = undefined;
     this.instrumenterContext.assignHitLimit(activeMutant.id, hitLimit);
     this.instrumenterContext.assignHitCount(activeMutant.id, 0);
 
@@ -162,8 +164,10 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       this.setIfDefined(this.originalGrep, this.mocha.grep);
     }
 
+    StrykerMochaReporter.mutantRunOptions = options.mutantRunOptions;
+    StrykerMochaReporter.bail = !options.disableBail;
+
     return this.simultaneousRun(
-      // default to true since we do not support smart bail (at the moment)
       options.mutantRunOptions.length <= 1 ? options.disableBail : true,
       options.mutantRunOptions,
       options.mutantActivation,
@@ -175,7 +179,12 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     mutantRunOptions: MutantRunOptions[],
     mutantActivation: MutantActivation,
   ): Promise<SimultaneousMutantRunResult> {
-    setBail(!disableBail, this.mocha.suite);
+    if (mutantRunOptions.length > 1) {
+      // cannot set bail on the suites with simultaneous mutants, we need to do that ourselves
+      setBail(false, this.mocha.suite);
+    } else {
+      setBail(!disableBail, this.mocha.suite);
+    }
     const activeMutantIds = mutantRunOptions.map((o) => o.activeMutant.id);
     try {
       if (!this.loadedEnv) {
@@ -241,47 +250,16 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     }
   }
 
-  public formulatePartialResults(mutantRunOptions: MutantRunOptions[]): PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult {
+  public async formulateEarlyResults(
+    mutantRunOptions: MutantRunOptions[],
+  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined> {
     const reporter = StrykerMochaReporter.currentInstance;
     if (reporter) {
-      const { tests } = reporter;
-      const context = this.instrumenterContext;
-      const results = [];
-      for (const mutant of mutantRunOptions) {
-        const { id } = mutant.activeMutant;
-        const timeoutResult = determineHitLimitReached(context.getHitCount(id), context.getHitLimit(id));
-        if (timeoutResult) {
-          results.push(timeoutResult);
-        } else {
-          // todo: verify
-          // todo: this won't work as the reporter does not include skipped tests...
-          const relatedTests = mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests;
-          const length = mutant.testFilter ? mutant.testFilter.length : tests.length;
-          if (relatedTests.length !== length) {
-          }
-          // todo: verify
-          // first: check if any of the tests failed, if so we can say it has been killed with confidence
-          if (relatedTests.some((v) => v.status === TestStatus.Failed)) {
-            const result: CompleteDryRunResult = {
-              status: DryRunStatus.Complete,
-              tests: mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests,
-            };
-            results.push(result);
-          } else {
-            // no test has been killed, either a timeout or not settled yet
-          }
-
-          const result: CompleteDryRunResult = {
-            status: DryRunStatus.Complete,
-            tests: mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests,
-          };
-          results.push(result);
-        }
+      if (reporter.isDone()) {
+        return this.formulateSimultaneousResults(mutantRunOptions, reporter, this.instrumenterContext);
+      } else {
+        return this.formulatePartialResults(mutantRunOptions, reporter, this.instrumenterContext);
       }
-      return {
-        status: SimultaneousMutantRunStatus.Valid,
-        results: results.map((dry) => toMutantRunResult(dry)),
-      };
     } else {
       const errorMessage = `Mocha didn't instantiate the ${StrykerMochaReporter.name} correctly. Test result cannot be reported.`;
       this.log.error(errorMessage);
@@ -290,10 +268,83 @@ export class MochaTestRunner extends SimultaneousTestRunner {
         invalidResult: { status: MutantRunStatus.Error, errorMessage },
       };
     }
+  }
 
+  private formulateSimultaneousResults(
+    mutantRunOptions: MutantRunOptions[],
+    { tests }: I<StrykerMochaReporter>,
+    context: InstrumenterContextWrapper,
+  ): SimultaneousMutantRunResult {
+    const dryRunResults = [];
+    for (const mutant of mutantRunOptions) {
+      const { id } = mutant.activeMutant;
+      const timeoutResult = determineHitLimitReached(context.getHitCount(id), context.getHitLimit(id));
+      if (timeoutResult) {
+        dryRunResults.push(timeoutResult);
+      } else {
+        const result: CompleteDryRunResult = {
+          status: DryRunStatus.Complete,
+          tests: mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests,
+        };
+        dryRunResults.push(result);
+      }
+    }
+    return {
+      status: SimultaneousMutantRunStatus.Valid,
+      results: dryRunResults.map((dry) => toMutantRunResult(dry)),
+    };
+  }
+
+  private formulatePartialResults(
+    mutantRunOptions: MutantRunOptions[],
+    { tests, mutantIdToStatus, pendingCount, pendingTest, testTitleToMutantId }: I<StrykerMochaReporter>,
+    context: InstrumenterContextWrapper,
+  ): PartialSimultaneousMutantRunResult {
+    const partialResults: Array<MutantRunResult | PendingMutantRunResult> = [];
+    for (const mutant of mutantRunOptions) {
+      const { id } = mutant.activeMutant;
+      const timeoutResult = determineHitLimitReached(context.getHitCount(id), context.getHitLimit(id));
+      if (timeoutResult) {
+        partialResults.push(toMutantRunResult(timeoutResult));
+      } else {
+        // todo: verify
+        // need to know if test filter is based on (full) title or the actual unique identifier of a test
+        const relatedTests = mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests;
+        const actualTestedLength = mutant.testFilter ? mutant.testFilter.length : tests.length;
+        const status = mutantIdToStatus.get(id);
+        if (relatedTests.length === actualTestedLength) {
+          partialResults.push(toMutantRunResult({ status: DryRunStatus.Complete, tests: relatedTests }));
+        } else if (status && status !== MutantRunStatus.Pending) {
+          // could not finish all tests for this mutant, but was able to form a result
+          // todo: if bail is disabled we should not stop here?
+          partialResults.push(toMutantRunResult({ status: DryRunStatus.Complete, tests: relatedTests }));
+        } else {
+          // could not finish all tests for this mutant, check if it is the one that caused the timeout
+          let result: MutantRunResult | PendingMutantRunResult;
+          if (pendingCount !== 0) {
+            const cachePendingTest = pendingTest;
+            if (cachePendingTest) {
+              this.log.info(
+                `Pending test: ${cachePendingTest.fullTitle()}, belongs to mutant: ${testTitleToMutantId.get(
+                  cachePendingTest.fullTitle(),
+                )}, testing for mutant: ${id}.`,
+              );
+            }
+            if (cachePendingTest && testTitleToMutantId.get(cachePendingTest.fullTitle()) === id) {
+              result = { status: MutantRunStatus.Timeout, reason: `Test '${cachePendingTest.fullTitle()}' timed out` };
+            } else {
+              result = { status: MutantRunStatus.Pending };
+            }
+          } else {
+            result = { status: MutantRunStatus.Pending };
+          }
+          partialResults.push(result);
+        }
+      }
+    }
     return {
       status: SimultaneousMutantRunStatus.Partial,
-      partialResults: [],
+      partialResults: partialResults,
     };
   }
 

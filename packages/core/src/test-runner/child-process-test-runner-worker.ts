@@ -12,7 +12,7 @@ import {
   SimultaneousMutantRunOptions,
   SimultaneousMutantRunResult,
   SimultaneousMutantRunStatus,
-  InvalidSimultaneousMutantRunResult,
+  PartialSimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import { errorToString } from '@stryker-mutator/util';
 
@@ -76,5 +76,11 @@ export class ChildProcessTestRunnerWorker implements TestRunner {
       }
     }
     return result;
+  }
+
+  public async formulateEarlyResults(
+    mutantRunOptions: MutantRunOptions[],
+  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined> {
+    return this.underlyingTestRunner.formulateEarlyResults?.(mutantRunOptions);
   }
 }

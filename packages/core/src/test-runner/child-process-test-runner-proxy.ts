@@ -11,6 +11,7 @@ import {
   TestRunner,
   SimultaneousMutantRunOptions,
   SimultaneousMutantRunResult,
+  PartialSimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import { ExpirableTask } from '@stryker-mutator/util';
 
@@ -68,6 +69,12 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
   }
   public simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
     return this.worker.proxy.simultaneousMutantRun(options);
+  }
+
+  public async formulateEarlyResults(
+    mutantRunOptions: MutantRunOptions[],
+  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined> {
+    return this.worker.proxy.formulateEarlyResults?.(mutantRunOptions);
   }
 
   public async dispose(): Promise<void> {

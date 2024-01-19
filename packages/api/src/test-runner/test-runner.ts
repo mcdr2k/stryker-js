@@ -1,6 +1,11 @@
 import { DryRunOptions, MutantRunOptions, SimultaneousMutantRunOptions, regularToSimultaneousMutantRunOptions } from './run-options.js';
 import { DryRunResult } from './dry-run-result.js';
-import { MutantRunResult, SimultaneousMutantRunResult, SimultaneousMutantRunStatus } from './mutant-run-result.js';
+import {
+  MutantRunResult,
+  PartialSimultaneousMutantRunResult,
+  SimultaneousMutantRunResult,
+  SimultaneousMutantRunStatus,
+} from './mutant-run-result.js';
 import { TestRunnerCapabilities } from './test-runner-capabilities.js';
 
 export interface TestRunner {
@@ -9,10 +14,11 @@ export interface TestRunner {
   dryRun(options: DryRunOptions): Promise<DryRunResult>;
   mutantRun(options: MutantRunOptions): Promise<MutantRunResult>;
   simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult>;
+  formulateEarlyResults?(mutantRunOptions: MutantRunOptions[]): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined>;
   dispose?(): Promise<void>;
 }
 
-abstract class AbstractTestRunner {
+abstract class AbstractTestRunner implements TestRunner {
   public abstract capabilities(): Promise<TestRunnerCapabilities> | TestRunnerCapabilities;
   public abstract dryRun(options: DryRunOptions): Promise<DryRunResult>;
   public abstract mutantRun(options: MutantRunOptions): Promise<MutantRunResult>;

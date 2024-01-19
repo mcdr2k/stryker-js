@@ -4,7 +4,7 @@
   "testRunner": "mocha",
   "disableSimultaneousTesting": false,
   "disableBail": false,
-  "fileLogLevel": "info",
+  "fileLogLevel": "trace",
   "reporters": [
     "json",
     "progress",
