@@ -1,16 +1,7 @@
 import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap } from 'rxjs';
 import { toArray, map, shareReplay, tap, mergeAll } from 'rxjs/operators';
 import { tokens, commonTokens } from '@stryker-mutator/api/plugin';
-import {
-  MutantResult,
-  MutantStatus,
-  Mutant,
-  StrykerOptions,
-  PlanKind,
-  MutantTestPlan,
-  MutantRunPlan,
-  SimultaneousMutantRunPlan,
-} from '@stryker-mutator/api/core';
+import { MutantResult, Mutant, StrykerOptions, PlanKind, MutantTestPlan, MutantRunPlan, SimultaneousMutantRunPlan } from '@stryker-mutator/api/core';
 import { TestRunner, CompleteDryRunResult, TestRunnerCapabilities } from '@stryker-mutator/api/test-runner';
 import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';

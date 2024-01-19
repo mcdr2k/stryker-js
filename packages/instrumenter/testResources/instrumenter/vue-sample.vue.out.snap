@@ -45,8 +45,8 @@ exports[`instrumenter integration should be able to instrument a vue sample 1`] 
 function stryNS_9fa48() {
   var g = typeof globalThis === 'object' && globalThis && globalThis.Math === Math && globalThis || new Function(\\"return this\\")();
   var ns = g.__stryker__ || (g.__stryker__ = {});
-  if (ns.activeMutant === undefined && g.process && g.process.env && g.process.env.__STRYKER_ACTIVE_MUTANT__) {
-    ns.activeMutant = g.process.env.__STRYKER_ACTIVE_MUTANT__;
+  if (ns.activeMutants === undefined && g.process && g.process.env && g.process.env.__STRYKER_ACTIVE_MUTANT__) {
+    ns.activeMutants = new Set([g.process.env.__STRYKER_ACTIVE_MUTANT__]);
   }
   function retrieveNS() {
     return ns;
@@ -77,9 +77,13 @@ function stryCov_9fa48() {
 function stryMutAct_9fa48(id) {
   var ns = stryNS_9fa48();
   function isActive(id) {
-    if (ns.activeMutant === id) {
-      if (ns.hitCount !== void 0 && ++ns.hitCount > ns.hitLimit) {
-        throw new Error('Stryker: Hit count limit reached (' + ns.hitCount + ')');
+    if (ns.activeMutants !== void 0 && ns.activeMutants.has(id)) {
+      if (ns.hitLimits !== void 0) {
+        var hitCount = ns.hitCounts.get(id) + 1;
+        ns.hitCounts.set(id, hitCount);
+        if (hitCount > ns.hitLimits.get(id)) {
+          throw new Error(\\"Stryker: Hit count limit reached for mutant '\\" + id + \\"' (\\" + hitCount + \\")\\");
+        }
       }
       return true;
     }
@@ -123,8 +127,8 @@ export default stryMutAct_9fa48(\\"0\\") ? {} : (stryCov_9fa48(\\"0\\"), {
 function stryNS_9fa48() {
   var g = typeof globalThis === 'object' && globalThis && globalThis.Math === Math && globalThis || new Function(\\"return this\\")();
   var ns = g.__stryker__ || (g.__stryker__ = {});
-  if (ns.activeMutant === undefined && g.process && g.process.env && g.process.env.__STRYKER_ACTIVE_MUTANT__) {
-    ns.activeMutant = g.process.env.__STRYKER_ACTIVE_MUTANT__;
+  if (ns.activeMutants === undefined && g.process && g.process.env && g.process.env.__STRYKER_ACTIVE_MUTANT__) {
+    ns.activeMutants = new Set([g.process.env.__STRYKER_ACTIVE_MUTANT__]);
   }
   function retrieveNS() {
     return ns;
@@ -155,9 +159,13 @@ function stryCov_9fa48() {
 function stryMutAct_9fa48(id) {
   var ns = stryNS_9fa48();
   function isActive(id) {
-    if (ns.activeMutant === id) {
-      if (ns.hitCount !== void 0 && ++ns.hitCount > ns.hitLimit) {
-        throw new Error('Stryker: Hit count limit reached (' + ns.hitCount + ')');
+    if (ns.activeMutants !== void 0 && ns.activeMutants.has(id)) {
+      if (ns.hitLimits !== void 0) {
+        var hitCount = ns.hitCounts.get(id) + 1;
+        ns.hitCounts.set(id, hitCount);
+        if (hitCount > ns.hitLimits.get(id)) {
+          throw new Error(\\"Stryker: Hit count limit reached for mutant '\\" + id + \\"' (\\" + hitCount + \\")\\");
+        }
       }
       return true;
     }
