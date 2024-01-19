@@ -52,7 +52,7 @@ describe(MochaTestRunner.name, () => {
   });
 
   describe('capabilities', async () => {
-    const expectedCapabilities: TestRunnerCapabilities = { reloadEnvironment: false, simultaneousTesting: true, smartBail: false };
+    const expectedCapabilities: TestRunnerCapabilities = { reloadEnvironment: false, simultaneousTesting: true, smartBail: true };
     const actualCapabilities = await createSut().capabilities();
     it('should communicate reloadEnvironment=false', async () => {
       expect(actualCapabilities.reloadEnvironment).eq(expectedCapabilities.reloadEnvironment);
@@ -62,7 +62,7 @@ describe(MochaTestRunner.name, () => {
       expect(actualCapabilities.simultaneousTesting).eq(expectedCapabilities.simultaneousTesting);
     });
 
-    it('should communicate smartBail=false', async () => {
+    it('should communicate smartBail=true', async () => {
       expect(actualCapabilities.smartBail).eq(expectedCapabilities.smartBail);
     });
   });
