@@ -128,7 +128,7 @@ export class MutationTestExecutor {
   private executeNoCoverage(input$: Observable<MutantRunPlan>) {
     const [noCoverageMatchedMutant$, coveredMutant$] = partition(input$.pipe(shareReplay()), ({ runOptions }) => runOptions.testFilter?.length === 0);
     const noCoverageResult$ = noCoverageMatchedMutant$.pipe(
-      map(({ mutant }) => this.mutationTestReportHelper.reportMutantStatus(mutant, MutantStatus.NoCoverage)),
+      map(({ mutant }) => this.mutationTestReportHelper.reportMutantStatus(mutant, 'NoCoverage')),
     );
     return { noCoverageResult$, coveredMutant$ };
   }

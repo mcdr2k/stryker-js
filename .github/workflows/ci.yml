@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [16.x, 18.x]
+        node-version: [18.x, 20.x]
         os: ['ubuntu-latest', 'windows-latest']
     steps:
     - uses: actions/checkout@v4
@@ -63,7 +63,8 @@ jobs:
         cache: 'npm'
         cache-dependency-path: '**/package-lock.json'
     - name: Install dependencies
-      run: npm ci || npm ci # retry once, install on windows is flaky...
+      # retry once, install on windows is flaky...
+      run: npm ci || npm ci
     - name: Build packages
       run: npm run build
     - name: e2e install
@@ -72,7 +73,7 @@ jobs:
       run: 'npm run e2e:lint'
     - name: Run e2e tests
       run: 'npm run e2e:run'
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: e2e-reports

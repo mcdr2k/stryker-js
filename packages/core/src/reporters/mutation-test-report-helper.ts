@@ -98,14 +98,14 @@ export class MutationTestReportHelper {
       case MutantRunStatus.Error:
         return this.reportOne({
           ...mutant,
-          status: MutantStatus.RuntimeError,
+          status: 'RuntimeError',
           statusReason: result.errorMessage,
           location,
         });
       case MutantRunStatus.Killed:
         return this.reportOne({
           ...mutant,
-          status: MutantStatus.Killed,
+          status: 'Killed',
           testsCompleted: result.nrOfTests,
           killedBy: result.killedBy,
           statusReason: result.failureMessage,
@@ -114,14 +114,14 @@ export class MutationTestReportHelper {
       case MutantRunStatus.Timeout:
         return this.reportOne({
           ...mutant,
-          status: MutantStatus.Timeout,
+          status: 'Timeout',
           statusReason: result.reason,
           location,
         });
       case MutantRunStatus.Survived:
         return this.reportOne({
           ...mutant,
-          status: MutantStatus.Survived,
+          status: 'Survived',
           testsCompleted: result.nrOfTests,
           location,
         });
@@ -136,7 +136,7 @@ export class MutationTestReportHelper {
   private checkStatusToResultStatus(status: Exclude<CheckStatus, CheckStatus.Passed>): MutantStatus {
     switch (status) {
       case CheckStatus.CompileError:
-        return MutantStatus.CompileError;
+        return 'CompileError';
     }
   }
 
