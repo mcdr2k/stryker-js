@@ -1,6 +1,6 @@
 import * as schema from 'mutation-testing-report-schema/api';
 
-import { MutantRunOptions, SimultaneousMutantRunOptions } from '../test-runner/index.js';
+import { MutantRunOptions, SimultaneousMutantRunOptions, decomposeSimultaneousMutantRunOptions } from '../test-runner/index.js';
 
 import { MutantTestCoverage } from './mutant.js';
 
@@ -59,4 +59,15 @@ export interface SimultaneousMutantRunPlan {
   plan: PlanKind.Run;
   mutants: MutantTestCoverage[];
   runOptions: SimultaneousMutantRunOptions;
+}
+
+export function decomposeSimultaneousMutantRunPlan(plan: SimultaneousMutantRunPlan): SimultaneousMutantRunPlan[] {
+  const L = plan.mutants.length;
+  const runOptions = decomposeSimultaneousMutantRunOptions(plan.runOptions);
+  const result = [];
+  for (let i = 0; i < L; i++) {
+    const newPlan: SimultaneousMutantRunPlan = { plan: PlanKind.Run, mutants: [plan.mutants[i]], runOptions: runOptions[i] };
+    result.push(newPlan);
+  }
+  return result;
 }

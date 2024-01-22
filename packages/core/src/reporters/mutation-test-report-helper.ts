@@ -87,6 +87,8 @@ export class MutationTestReportHelper {
       case SimultaneousMutantRunStatus.Invalid:
         const error = simultaneousResult.invalidResult;
         return mutants.map((x) => this.reportMutantRunResult(x, error));
+      case SimultaneousMutantRunStatus.Partial:
+        throw new Error('Cannot report partial results');
     }
   }
 

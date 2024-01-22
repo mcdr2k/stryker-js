@@ -58,7 +58,7 @@ export enum SimultaneousMutantRunStatus {
   Partial = 'partial',
 }
 
-export type SimultaneousMutantRunResult = InvalidSimultaneousMutantRunResult | ValidSimultaneousMutantRunResult;
+export type SimultaneousMutantRunResult = InvalidSimultaneousMutantRunResult | PartialSimultaneousMutantRunResult | ValidSimultaneousMutantRunResult;
 
 export interface ValidSimultaneousMutantRunResult {
   status: SimultaneousMutantRunStatus.Valid;

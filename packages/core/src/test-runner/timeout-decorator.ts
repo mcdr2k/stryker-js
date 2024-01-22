@@ -8,8 +8,8 @@ import {
   SimultaneousMutantRunOptions,
   SimultaneousMutantRunResult,
   SimultaneousMutantRunStatus,
-  decomposeSimultaneousMutantRunOptions,
   PartialSimultaneousMutantRunResult,
+  decomposeSimultaneousMutantRunOptions,
 } from '@stryker-mutator/api/test-runner';
 import log4js from 'log4js';
 import { ExpirableTask } from '@stryker-mutator/util';
@@ -70,11 +70,27 @@ export class TimeoutDecorator extends TestRunnerDecorator {
         };
       }
       const group = options.mutantRunOptions.map((o) => o.activeMutant.id);
-      this.log.info(`Mutant group (${group}) timed out, attempting to rerun the simultaneous mutants individually`);
+      if (this.log.isTraceEnabled()) {
+        this.log.trace(`Mutant group (${group}) timed out.`);
+      }
       const partialResults = await this.formulateEarlyResults?.(options.mutantRunOptions);
-      this.log.info(`Partial results recovered: ${JSON.stringify(partialResults, null, 2)}`);
       await this.handleTimeout();
-      return this.simpleDecomposedSimultaneousMutantRun(options, group, partialResults);
+      if (partialResults) {
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Partial results recovered for mutant group (${group}): ${JSON.stringify(partialResults, null, 2)}`);
+        }
+        return this.simpleDecomposedSimultaneousMutantRun(options, group, partialResults);
+        //return partialResults;
+      }
+      // simultaneous testing is essentially useless if the test-runner is unable to formulate an early result
+      // we have no clue here which test timed out and which tests had already been run, this is terrible for performance
+      // as it requires us to rerun all mutants individually, including the timed out one (yielding double timeouts)
+      return {
+        status: SimultaneousMutantRunStatus.Partial,
+        partialResults: options.mutantRunOptions.map((_) => {
+          return { status: MutantRunStatus.Pending };
+        }),
+      };
     } else {
       return result;
     }
@@ -104,16 +120,20 @@ export class TimeoutDecorator extends TestRunnerDecorator {
           const result = await this.simultaneousMutantRun(mutant);
           if (result.status === SimultaneousMutantRunStatus.Valid) {
             results.push(result.results[0]);
-          } else {
+          } else if (result.status === SimultaneousMutantRunStatus.Invalid) {
             results.push(result.invalidResult);
+          } else {
+            throw new Error('invalid state');
           }
         }
       } else {
         const result = await this.simultaneousMutantRun(mutant);
         if (result.status === SimultaneousMutantRunStatus.Valid) {
           results.push(result.results[0]);
-        } else {
+        } else if (result.status === SimultaneousMutantRunStatus.Invalid) {
           results.push(result.invalidResult);
+        } else {
+          throw new Error('invalid state');
         }
       }
     }

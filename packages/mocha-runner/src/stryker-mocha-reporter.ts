@@ -117,6 +117,9 @@ export class StrykerMochaReporter {
       });
     }
 
+    // todo: we could actually change ns.activeMutants from here if we want to
+    // that way we can mitigate many(!) issues with dependencies between multiple mutants
+    // could run into trouble if suites ('describes') also creates data
     this.runner.on(EVENT_TEST_BEGIN, (test: Mocha.Test) => {
       this.timer.reset();
       this.pendingTest = test;

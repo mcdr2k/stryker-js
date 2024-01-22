@@ -1,8 +1,29 @@
 import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap } from 'rxjs';
-import { toArray, map, shareReplay, tap, mergeAll } from 'rxjs/operators';
+import { toArray, map, shareReplay, tap } from 'rxjs/operators';
 import { tokens, commonTokens } from '@stryker-mutator/api/plugin';
-import { MutantResult, Mutant, StrykerOptions, PlanKind, MutantTestPlan, MutantRunPlan, SimultaneousMutantRunPlan } from '@stryker-mutator/api/core';
-import { TestRunner, CompleteDryRunResult, TestRunnerCapabilities } from '@stryker-mutator/api/test-runner';
+import {
+  MutantResult,
+  Mutant,
+  StrykerOptions,
+  PlanKind,
+  MutantTestPlan,
+  MutantRunPlan,
+  SimultaneousMutantRunPlan,
+  decomposeSimultaneousMutantRunPlan,
+} from '@stryker-mutator/api/core';
+import {
+  TestRunner,
+  CompleteDryRunResult,
+  TestRunnerCapabilities,
+  SimultaneousMutantRunResult,
+  MutantRunResult,
+  SimultaneousMutantRunStatus,
+  PartialSimultaneousMutantRunResult,
+  MutantRunStatus,
+  ValidSimultaneousMutantRunResult,
+  PendingMutantRunResult,
+  InvalidSimultaneousMutantRunResult,
+} from '@stryker-mutator/api/test-runner';
 import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
 import { CheckStatus } from '@stryker-mutator/api/check';
@@ -142,17 +163,83 @@ export class MutationTestExecutor {
       mergeMap((plans) => plans.sort(simultaneousReloadEnvironmentLast)),
     );
     return this.testRunnerPool
-      .schedule(sortedPlan$, async (testRunner, { mutants, runOptions }) => {
+      .schedule(sortedPlan$, async (testRunner, plan) => {
+        //const { mutants, runOptions } = plan;
         // todo: ensure that #simultaneousMutantRun's result always has the results of
         // the mutants in the same order as presented in the mutants input
-        if (this.log.isDebugEnabled() && runOptions.mutantRunOptions.length > 1) {
-          this.log.debug(`Attempting to run simultaneous mutant: ${JSON.stringify(runOptions, null, 2)}`);
-        }
         this.markMutationTestStart();
-        const result = await testRunner.simultaneousMutantRun(runOptions);
-        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(mutants, result);
+        const result = await testRunner.simultaneousMutantRun(plan.runOptions);
+        //const hiya: [SimultaneousMutantRunPlan, SimultaneousMutantRunResult] = [plan, result];
+        //return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(mutants, result);
+        return [plan, result] as [SimultaneousMutantRunPlan, SimultaneousMutantRunResult];
       })
-      .pipe(mergeAll());
+      .pipe((x) => this.executePartialSimultaneousRunInTestRunner(x));
+    //.pipe(map((r) => this.mutationTestReportHelper.reportMutantRunResult(r)));
+    //.pipe(mergeAll());
+  }
+
+  // arguably: these 'as' casts are dangerous if someone modifies these interfaces again
+  // ts is not strong enough to detect issues with these casts
+  private executePartialSimultaneousRunInTestRunner(
+    input$: Observable<[SimultaneousMutantRunPlan, SimultaneousMutantRunResult]>,
+  ): Observable<MutantResult> {
+    const [partialResult$, completeResult$] = partition(input$, (value) => value[1].status === SimultaneousMutantRunStatus.Partial) as [
+      Observable<[SimultaneousMutantRunPlan, PartialSimultaneousMutantRunResult]>,
+      Observable<[SimultaneousMutantRunPlan, InvalidSimultaneousMutantRunResult | ValidSimultaneousMutantRunResult]>,
+    ];
+
+    const decomposedPartialResult$: Observable<[SimultaneousMutantRunPlan, MutantRunResult | PendingMutantRunResult]> = partialResult$.pipe(
+      mergeMap(([plan, result]) => {
+        const L = result.partialResults.length;
+        const newPlans = decomposeSimultaneousMutantRunPlan(plan);
+        const tmp: Array<[SimultaneousMutantRunPlan, MutantRunResult | PendingMutantRunResult]> = [];
+        for (let i = 0; i < L; i++) {
+          tmp.push([newPlans[i], result.partialResults[i]] as [SimultaneousMutantRunPlan, MutantRunResult | PendingMutantRunResult]);
+        }
+        return tmp;
+      }),
+    );
+
+    const [pendingMutant$, completedMutant$] = partition(decomposedPartialResult$, ([_, y]) => y.status === MutantRunStatus.Pending) as [
+      Observable<[SimultaneousMutantRunPlan, PendingMutantRunResult]>,
+      Observable<[SimultaneousMutantRunPlan, MutantRunResult]>,
+    ];
+    const retriedMutant$ = this.retryPendingMutant(pendingMutant$).pipe(
+      mergeMap(([p, r]) => this.mutationTestReportHelper.reportSimultaneousMutantRunResult(p.mutants, r)),
+    );
+
+    const simultaneousResult$: Observable<MutantResult> = completeResult$.pipe(
+      mergeMap(([p, r]) => {
+        if (r.status === SimultaneousMutantRunStatus.Invalid) {
+          this.log.warn(`Produced an invalid result, assumes that the entire group has survived: ${JSON.stringify(r, null, 2)}`);
+          // todo: proper size for invalid result?
+          const result = [];
+          // eslint-disable-next-line @typescript-eslint/prefer-for-of
+          for (let i = 0; i < p.mutants.length; i++) {
+            const tmp = this.mutationTestReportHelper.reportMutantRunResult(p.mutants[i], r.invalidResult);
+            result.push(tmp);
+          }
+          return result;
+        }
+        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(p.mutants, r);
+      }),
+    );
+
+    //return this.testRunnerPool.schedule(input$, async (testRunner, result) => {});
+    return merge(
+      simultaneousResult$,
+      completedMutant$.pipe(map(([x, y]) => this.mutationTestReportHelper.reportMutantRunResult(x.mutants[0], y))),
+      retriedMutant$,
+    );
+  }
+
+  private retryPendingMutant(
+    pendingMutant$: Observable<[SimultaneousMutantRunPlan, PendingMutantRunResult]>,
+  ): Observable<[SimultaneousMutantRunPlan, SimultaneousMutantRunResult]> {
+    return this.testRunnerPool.schedule(pendingMutant$, async (testRunner, [plan, _pendingResult]) => {
+      const result = await testRunner.simultaneousMutantRun(plan.runOptions);
+      return [plan, result];
+    });
   }
 
   private logMutationRunDone() {

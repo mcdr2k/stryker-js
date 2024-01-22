@@ -57,8 +57,10 @@ export abstract class SimultaneousTestRunner extends AbstractTestRunner {
     const simultaneousResults = await this.simultaneousMutantRun(regularToSimultaneousMutantRunOptions(options));
     if (simultaneousResults.status === SimultaneousMutantRunStatus.Valid) {
       return simultaneousResults.results[0];
-    } else {
+    } else if (simultaneousResults.status === SimultaneousMutantRunStatus.Invalid) {
       return simultaneousResults.invalidResult;
+    } else {
+      throw new Error('Cannot work with partial result');
     }
   }
 }
