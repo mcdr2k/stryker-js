@@ -174,7 +174,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     );
   }
 
-  public async simultaneousRun(
+  private async simultaneousRun(
     disableBail: boolean,
     mutantRunOptions: MutantRunOptions[],
     mutantActivation: MutantActivation,
@@ -200,48 +200,17 @@ export class MochaTestRunner extends SimultaneousTestRunner {
         await this.mocha.loadFilesAsync();
         this.loadedEnv = true;
       }
+
       this.instrumenterContext.activeMutants = activeMutantIds.length > 0 ? new Set(activeMutantIds) : undefined;
       await this.runMocha();
 
-      const reporter = StrykerMochaReporter.currentInstance;
-      if (reporter) {
-        const dryRunResults = formulateSimultaneousResults(reporter, this.instrumenterContext);
-        return {
-          status: SimultaneousMutantRunStatus.Valid,
-          results: dryRunResults.map((dry) => toMutantRunResult(dry)),
-        };
-      } else {
-        const errorMessage = `Mocha didn't instantiate the ${StrykerMochaReporter.name} correctly. Test result cannot be reported.`;
-        this.log.error(errorMessage);
-        return {
-          status: SimultaneousMutantRunStatus.Invalid,
-          invalidResult: { status: MutantRunStatus.Error, errorMessage },
-        };
-      }
+      const completeResult = await this.formulateEarlyResults(mutantRunOptions);
+      return completeResult;
     } catch (errorMessage: any) {
-      this.log.info(`Simultaneous run failed with message: ${errorMessage}`);
       return {
-        status: SimultaneousMutantRunStatus.Invalid,
-        invalidResult: { status: MutantRunStatus.Error, errorMessage },
+        status: SimultaneousMutantRunStatus.Error,
+        errorMessage,
       };
-    }
-
-    function formulateSimultaneousResults({ tests }: I<StrykerMochaReporter>, context: InstrumenterContextWrapper): DryRunResult[] {
-      const results = [];
-      for (const mutant of mutantRunOptions) {
-        const { id } = mutant.activeMutant;
-        const timeoutResult = determineHitLimitReached(context.getHitCount(id), context.getHitLimit(id));
-        if (timeoutResult) {
-          results.push(timeoutResult);
-        } else {
-          const result: CompleteDryRunResult = {
-            status: DryRunStatus.Complete,
-            tests: mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests,
-          };
-          results.push(result);
-        }
-      }
-      return results;
     }
 
     function setBail(bail: boolean, suite: Suite) {
@@ -252,7 +221,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
 
   public async formulateEarlyResults(
     mutantRunOptions: MutantRunOptions[],
-  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined> {
+  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult> {
     const reporter = StrykerMochaReporter.currentInstance;
     if (reporter) {
       if (reporter.isDone()) {
@@ -264,8 +233,8 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       const errorMessage = `Mocha didn't instantiate the ${StrykerMochaReporter.name} correctly. Test result cannot be reported.`;
       this.log.error(errorMessage);
       return {
-        status: SimultaneousMutantRunStatus.Invalid,
-        invalidResult: { status: MutantRunStatus.Error, errorMessage },
+        status: SimultaneousMutantRunStatus.Error,
+        errorMessage,
       };
     }
   }
@@ -290,7 +259,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       }
     }
     return {
-      status: SimultaneousMutantRunStatus.Valid,
+      status: SimultaneousMutantRunStatus.Complete,
       results: dryRunResults.map((dry) => toMutantRunResult(dry)),
     };
   }
@@ -323,13 +292,6 @@ export class MochaTestRunner extends SimultaneousTestRunner {
           let result: MutantRunResult | PendingMutantRunResult;
           if (pendingCount !== 0) {
             const cachePendingTest = pendingTest;
-            if (cachePendingTest) {
-              this.log.info(
-                `Pending test: ${cachePendingTest.fullTitle()}, belongs to mutant: ${testTitleToMutantId.get(
-                  cachePendingTest.fullTitle(),
-                )}, testing for mutant: ${id}.`,
-              );
-            }
             if (cachePendingTest && testTitleToMutantId.get(cachePendingTest.fullTitle()) === id) {
               result = { status: MutantRunStatus.Timeout, reason: `Test '${cachePendingTest.fullTitle()}' timed out` };
             } else {

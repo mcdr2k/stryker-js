@@ -53,21 +53,21 @@ export interface PendingMutantRunResult {
 }
 
 export enum SimultaneousMutantRunStatus {
-  Valid = 'valid',
-  Invalid = 'invalid',
+  Complete = 'complete',
+  Error = 'error',
   Partial = 'partial',
 }
 
-export type SimultaneousMutantRunResult = InvalidSimultaneousMutantRunResult | PartialSimultaneousMutantRunResult | ValidSimultaneousMutantRunResult;
+export type SimultaneousMutantRunResult = CompleteSimultaneousMutantRunResult | ErrorSimultaneousMutantRunResult | PartialSimultaneousMutantRunResult;
 
-export interface ValidSimultaneousMutantRunResult {
-  status: SimultaneousMutantRunStatus.Valid;
+export interface CompleteSimultaneousMutantRunResult {
+  status: SimultaneousMutantRunStatus.Complete;
   results: MutantRunResult[];
 }
 
-export interface InvalidSimultaneousMutantRunResult {
-  status: SimultaneousMutantRunStatus.Invalid;
-  invalidResult: ErrorMutantRunResult | TimeoutMutantRunResult;
+export interface ErrorSimultaneousMutantRunResult {
+  status: SimultaneousMutantRunStatus.Error;
+  errorMessage: string;
 }
 
 export interface PartialSimultaneousMutantRunResult {

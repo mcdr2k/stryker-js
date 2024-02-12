@@ -104,9 +104,9 @@ export class StrykerMochaReporter {
             const mutantStatus = this.mutantIdToStatus.get(mutantId);
             if (mutantStatus === MutantRunStatus.Killed) {
               if (StrykerMochaReporter.log?.isTraceEnabled()) {
-                StrykerMochaReporter.log?.trace(
-                  `Attempting to skip test '${test.fullTitle()}' for simultaneous mutant '${mutantId}' because it was already killed.`,
-                );
+                // StrykerMochaReporter.log?.trace(
+                //   `Attempting to skip test '${test.fullTitle()}' for simultaneous mutant '${mutantId}' because it was already killed.`,
+                // );
                 try {
                   test.skip();
                 } catch (e) {}
@@ -136,7 +136,7 @@ export class StrykerMochaReporter {
 
     this.runner.on(EVENT_TEST_PENDING, (test: Mocha.Test) => {
       if (StrykerMochaReporter.log?.isTraceEnabled()) {
-        StrykerMochaReporter.log?.trace(`Test skipped: ${test.fullTitle()}.`);
+        // StrykerMochaReporter.log?.trace(`Test skipped: ${test.fullTitle()}.`);
       }
       const title = test.fullTitle();
       const result: SkippedTestResult = {
@@ -180,7 +180,7 @@ export class StrykerMochaReporter {
         }
       }
       if (StrykerMochaReporter.log?.isTraceEnabled()) {
-        StrykerMochaReporter.log?.trace(`Test failed: ${test.fullTitle()}. Error: ${err.message}`);
+        // StrykerMochaReporter.log?.trace(`Test failed: ${test.fullTitle()}. Error: ${err.message}`);
       }
     });
 

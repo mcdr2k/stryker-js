@@ -2,6 +2,7 @@ import { DryRunOptions, MutantRunOptions, SimultaneousMutantRunOptions, regularT
 import { DryRunResult } from './dry-run-result.js';
 import {
   MutantRunResult,
+  MutantRunStatus,
   PartialSimultaneousMutantRunResult,
   SimultaneousMutantRunResult,
   SimultaneousMutantRunStatus,
@@ -38,12 +39,13 @@ export abstract class SingularTestRunner extends AbstractTestRunner {
         `Test runner does not support simultaneous mutation testing but was provided a group of order ${options.mutantRunOptions.length}`,
       );
     }
+    // todo
     // enforce reload environment of the individual mutant to be the same as in options (due to reload-environment-decorator)
     // might want to enforce it within the decorator instead
     const [singleMutantOptions] = options.mutantRunOptions;
     singleMutantOptions.reloadEnvironment = options.reloadEnvironment;
     const result = await this.mutantRun(singleMutantOptions);
-    return { status: SimultaneousMutantRunStatus.Valid, results: [result] };
+    return { status: SimultaneousMutantRunStatus.Complete, results: [result] };
   }
 }
 
@@ -55,12 +57,17 @@ export abstract class SingularTestRunner extends AbstractTestRunner {
 export abstract class SimultaneousTestRunner extends AbstractTestRunner {
   public override async mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
     const simultaneousResults = await this.simultaneousMutantRun(regularToSimultaneousMutantRunOptions(options));
-    if (simultaneousResults.status === SimultaneousMutantRunStatus.Valid) {
+    if (simultaneousResults.status === SimultaneousMutantRunStatus.Complete) {
       return simultaneousResults.results[0];
-    } else if (simultaneousResults.status === SimultaneousMutantRunStatus.Invalid) {
-      return simultaneousResults.invalidResult;
+    } else if (simultaneousResults.status === SimultaneousMutantRunStatus.Error) {
+      return { status: MutantRunStatus.Error, errorMessage: simultaneousResults.errorMessage };
     } else {
-      throw new Error('Cannot work with partial result');
+      const [partialResult] = simultaneousResults.partialResults;
+      if (partialResult.status === MutantRunStatus.Pending) {
+        // assume survivor? Or error? This should not ever happen though...]
+        throw new Error('Cannot work with partial result');
+      }
+      return partialResult;
     }
   }
 }

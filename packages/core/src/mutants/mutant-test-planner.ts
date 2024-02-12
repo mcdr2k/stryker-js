@@ -73,6 +73,7 @@ export class MutantTestPlanner {
   }
 
   public async makeSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number): Promise<SimultaneousMutantRunPlan[]> {
+    // return mutants.map(MutantTestPlanner.planSingleSimultaneousMutant);
     return this.makeSimpleSimultaneousPlan(mutants, testCount);
   }
 

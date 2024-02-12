@@ -76,19 +76,36 @@ export class MutationTestReportHelper {
 
   public reportSimultaneousMutantRunResult(mutants: MutantTestCoverage[], simultaneousResult: SimultaneousMutantRunResult): MutantResult[] {
     switch (simultaneousResult.status) {
-      case SimultaneousMutantRunStatus.Valid: {
+      case SimultaneousMutantRunStatus.Complete: {
         const { results } = simultaneousResult;
+        if (results.length !== mutants.length) {
+          this.log.error(`Expected ${mutants.length} results but got only ${results.length}`);
+        }
         const result = [];
         for (let i = 0; i < mutants.length; i++) {
           result.push(this.reportMutantRunResult(mutants[i], results[i]));
         }
         return result;
       }
-      case SimultaneousMutantRunStatus.Invalid:
-        const error = simultaneousResult.invalidResult;
-        return mutants.map((x) => this.reportMutantRunResult(x, error));
+      case SimultaneousMutantRunStatus.Error:
+        const { errorMessage } = simultaneousResult;
+        return mutants.map((x) => this.reportMutantRunResult(x, { status: MutantRunStatus.Error, errorMessage }));
       case SimultaneousMutantRunStatus.Partial:
-        throw new Error('Cannot report partial results');
+        const { partialResults } = simultaneousResult;
+        if (partialResults.length !== mutants.length) {
+          this.log.error(`Expected ${mutants.length} partial results but got only ${partialResults.length}`);
+        }
+        const result = [];
+        for (let i = 0; i < mutants.length; i++) {
+          if (partialResults[i].status === MutantRunStatus.Pending) {
+            // todo: define nrOfTests...
+            this.log.warn(`Mutant '${mutants[i].id}' could not be evaluated properly and is assumed a survivor.`);
+            result.push(this.reportMutantRunResult(mutants[i], { status: MutantRunStatus.Survived, nrOfTests: 0 }));
+          } else {
+            result.push(this.reportMutantRunResult(mutants[i], partialResults[i] as MutantRunResult));
+          }
+        }
+        return result;
     }
   }
 

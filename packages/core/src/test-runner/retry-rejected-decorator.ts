@@ -101,10 +101,9 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
     const result = await this.simRun(options);
 
     if (typeof result === 'string') {
-      this.log.info('Rejected with reason: ' + result);
       return {
-        status: SimultaneousMutantRunStatus.Invalid,
-        invalidResult: { status: MutantRunStatus.Error, errorMessage: result },
+        status: SimultaneousMutantRunStatus.Error,
+        errorMessage: result,
       };
     } else {
       return result;

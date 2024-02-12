@@ -13,6 +13,7 @@ import {
   SimultaneousMutantRunResult,
   SimultaneousMutantRunStatus,
   PartialSimultaneousMutantRunResult,
+  PendingMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import { errorToString } from '@stryker-mutator/util';
 
@@ -55,25 +56,22 @@ export class ChildProcessTestRunnerWorker implements TestRunner {
   }
   public async mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
     const result = await this.underlyingTestRunner.mutantRun(options);
+    ChildProcessTestRunnerWorker.properErrorMessage(result);
+    return result;
+  }
+
+  private static properErrorMessage(result: MutantRunResult | PendingMutantRunResult): void {
     if (result.status === MutantRunStatus.Error) {
       result.errorMessage = errorToString(result.errorMessage);
     }
-    return result;
   }
 
   public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
     const result = await this.underlyingTestRunner.simultaneousMutantRun(options);
-    if (result.status === SimultaneousMutantRunStatus.Invalid) {
-      const invalid = result.invalidResult;
-      if (invalid.status === MutantRunStatus.Error) {
-        invalid.errorMessage = errorToString(invalid.errorMessage);
-      }
-    } else if (result.status === SimultaneousMutantRunStatus.Valid) {
-      for (const mutantResult of result.results) {
-        if (mutantResult.status === MutantRunStatus.Error) {
-          mutantResult.errorMessage = errorToString(mutantResult.errorMessage);
-        }
-      }
+    if (result.status === SimultaneousMutantRunStatus.Complete) {
+      result.results.map(ChildProcessTestRunnerWorker.properErrorMessage);
+    } else if (result.status === SimultaneousMutantRunStatus.Partial) {
+      result.partialResults.map(ChildProcessTestRunnerWorker.properErrorMessage);
     }
     return result;
   }

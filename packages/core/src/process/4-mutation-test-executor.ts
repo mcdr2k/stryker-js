@@ -1,5 +1,5 @@
 import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap } from 'rxjs';
-import { toArray, map, shareReplay, tap } from 'rxjs/operators';
+import { toArray, map, shareReplay, tap, mergeAll } from 'rxjs/operators';
 import { tokens, commonTokens } from '@stryker-mutator/api/plugin';
 import {
   MutantResult,
@@ -20,9 +20,9 @@ import {
   SimultaneousMutantRunStatus,
   PartialSimultaneousMutantRunResult,
   MutantRunStatus,
-  ValidSimultaneousMutantRunResult,
+  CompleteSimultaneousMutantRunResult,
   PendingMutantRunResult,
-  InvalidSimultaneousMutantRunResult,
+  ErrorSimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
@@ -60,6 +60,7 @@ const CHECK_BUFFER_MS = 10_000;
 const BUFFER_FOR_SORTING_MS = 0;
 const MUTANT_COUNT_SIMULTANEOUS_TESTING_THRESHOLD = 2; // 100?
 const MARK_MUTATION_TEST_START = 'MUTATION_RUN';
+const MARK_RETRY_START = 'RETRY_START';
 
 export class MutationTestExecutor {
   public static inject = tokens(
@@ -91,10 +92,12 @@ export class MutationTestExecutor {
     private readonly concurrencyTokenProvider: I<ConcurrencyTokenProvider>,
     private readonly dryRunResult: CompleteDryRunResult,
     private markedMutationTestStart = false,
+    private markedRetryStart = false,
   ) {}
 
   public async execute(): Promise<MutantResult[]> {
     this.markedMutationTestStart = false;
+    this.markedRetryStart = false;
     if (this.options.dryRunOnly) {
       this.log.info('The dry-run has been completed successfully. No mutations have been executed.');
       return [];
@@ -125,6 +128,7 @@ export class MutationTestExecutor {
     }
     const results = await lastValueFrom(merge(testRunnerResult$, checkResult$, noCoverageResult$, earlyResult$).pipe(toArray()));
     this.logMutationRunDone();
+    this.logRetryDone();
     await this.mutationTestReportHelper.reportAll(results);
     await this.reporter.wrapUp();
     this.logDone();
@@ -167,15 +171,158 @@ export class MutationTestExecutor {
         //const { mutants, runOptions } = plan;
         // todo: ensure that #simultaneousMutantRun's result always has the results of
         // the mutants in the same order as presented in the mutants input
+        const group = plan.mutants.map((m) => m.id);
         this.markMutationTestStart();
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Group ${group} started.`);
+        }
         const result = await testRunner.simultaneousMutantRun(plan.runOptions);
         //const hiya: [SimultaneousMutantRunPlan, SimultaneousMutantRunResult] = [plan, result];
         //return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(mutants, result);
         return [plan, result] as [SimultaneousMutantRunPlan, SimultaneousMutantRunResult];
+
+        // const r = await this.inPlaceRetry(testRunner, plan, result, group);
+        // if (this.verifyResult(plan, r, group)) {
+        //   this.log.trace(`Group ${group} finished appropriately.`);
+        // }
+        // return r;
       })
-      .pipe((x) => this.executePartialSimultaneousRunInTestRunner(x));
+      .pipe((o) => this.partitionSimultaneousResults(o));
+    // .pipe(mergeAll());
+    // .pipe((x) => this.executePartialSimultaneousRunInTestRunner(x));
+    //.pipe((o) => this.partitionSimultaneousResults(o))
     //.pipe(map((r) => this.mutationTestReportHelper.reportMutantRunResult(r)));
     //.pipe(mergeAll());
+  }
+
+  private verifyResult(plan: SimultaneousMutantRunPlan, result: any[], group: string[]) {
+    if (plan.mutants.length !== result.length) {
+      this.log.error(`Invalid result produced for group ${group}, plan: ${JSON.stringify(plan, null, 2)}\nresult: ${result}`);
+      return false;
+    }
+    return true;
+  }
+
+  private async inPlaceRetry(
+    testRunner: TestRunner,
+    plan: SimultaneousMutantRunPlan,
+    result: SimultaneousMutantRunResult,
+    group: string[],
+  ): Promise<MutantResult[]> {
+    if (result.status === SimultaneousMutantRunStatus.Error) {
+      this.log.debug(`Group ${group} had an error: ${JSON.stringify(result, null, 2)}.`);
+      const decomposed = decomposeSimultaneousMutantRunPlan(plan);
+      const newResult: MutantResult[] = [];
+      for (const mutant of decomposed) {
+        const [{ id }] = mutant.mutants;
+        this.log.info(`Attempting to rerun erroneous mutant '${id}.'`);
+        const rerun = await testRunner.simultaneousMutantRun(mutant.runOptions);
+        this.log.info(`Rerun finished for erroneous mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
+        newResult.push(this.mutationTestReportHelper.reportSimultaneousMutantRunResult(mutant.mutants, rerun)[0]);
+      }
+      return newResult;
+    } else if (result.status === SimultaneousMutantRunStatus.Partial) {
+      this.log.debug(`Group ${group} had a partial result: ${JSON.stringify(result, null, 2)}.`);
+      const decomposed = decomposeSimultaneousMutantRunPlan(plan);
+      const newResult: MutantResult[] = [];
+      let index = -1;
+      for (const mutant of decomposed) {
+        index++;
+        const partial = result.partialResults[index];
+        if (partial.status === MutantRunStatus.Pending) {
+          this.log.info(`Attempting to rerun '${mutant.runOptions.mutantRunOptions[0].activeMutant.id}.'`);
+          const rerun = await testRunner.simultaneousMutantRun(mutant.runOptions);
+          newResult.push(this.mutationTestReportHelper.reportSimultaneousMutantRunResult(mutant.mutants, rerun)[0]);
+          this.log.info(
+            `Rerun finished for mutant '${mutant.runOptions.mutantRunOptions[0].activeMutant.id}, with result: ${JSON.stringify(rerun, null, 2)}.'`,
+          );
+        } else {
+          newResult.push(this.mutationTestReportHelper.reportMutantRunResult(plan.mutants[index], partial));
+          this.log.info(`Group ${group} had a partial result for mutant '${plan.mutants[index].id}'.`);
+        }
+      }
+      return newResult;
+    } else {
+      return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result);
+    }
+  }
+
+  private partitionSimultaneousResults(input$: Observable<[SimultaneousMutantRunPlan, SimultaneousMutantRunResult]>) {
+    const [complete$, partialOrError$] = partition(
+      input$,
+      (v) => v[0].mutants.length === 1 || v[1].status === SimultaneousMutantRunStatus.Complete,
+    ) as [
+      Observable<[SimultaneousMutantRunPlan, SimultaneousMutantRunResult]>,
+      Observable<[SimultaneousMutantRunPlan, ErrorSimultaneousMutantRunResult | PartialSimultaneousMutantRunResult]>,
+    ];
+    const completeResult$ = complete$.pipe(mergeMap((v) => this.mutationTestReportHelper.reportSimultaneousMutantRunResult(v[0].mutants, v[1])));
+    const partialOrErrorResult$ = partialOrError$.pipe((o) => this.retryPartialOrError(o));
+    return merge(completeResult$, partialOrErrorResult$);
+  }
+
+  private retryPartialOrError(
+    input$: Observable<[SimultaneousMutantRunPlan, ErrorSimultaneousMutantRunResult | PartialSimultaneousMutantRunResult]>,
+  ): Observable<MutantResult> {
+    const [partial$, error$] = partition(input$, (v) => v[1].status === SimultaneousMutantRunStatus.Partial) as [
+      Observable<[SimultaneousMutantRunPlan, PartialSimultaneousMutantRunResult]>,
+      Observable<[SimultaneousMutantRunPlan, ErrorSimultaneousMutantRunResult]>,
+    ];
+
+    return merge(
+      partial$.pipe((o) => this.retryPartial(o)),
+      error$.pipe((o) => this.retryError(o)),
+    );
+  }
+
+  private retryPartial(input$: Observable<[SimultaneousMutantRunPlan, PartialSimultaneousMutantRunResult]>): Observable<MutantResult> {
+    const schedule$ = input$.pipe(
+      mergeMap(([plan, result]) => {
+        const L = result.partialResults.length;
+        const newPlans = decomposeSimultaneousMutantRunPlan(plan);
+        const tmp: Array<[SimultaneousMutantRunPlan, MutantRunResult | PendingMutantRunResult]> = [];
+        for (let i = 0; i < L; i++) {
+          tmp.push([newPlans[i], result.partialResults[i]] as [SimultaneousMutantRunPlan, MutantRunResult | PendingMutantRunResult]);
+        }
+        return tmp;
+      }),
+    );
+
+    const [pending$, complete$] = partition(schedule$, (v) => v[1].status === MutantRunStatus.Pending) as [
+      Observable<[SimultaneousMutantRunPlan, PendingMutantRunResult]>,
+      Observable<[SimultaneousMutantRunPlan, MutantRunResult]>,
+    ];
+
+    const pendingResult$ = this.testRunnerPool
+      .schedule(pending$, async (testRunner, [plan, _pendingResult]) => {
+        this.markRetryStart();
+        const [{ id }] = plan.mutants;
+        this.log.info(`Attempting to rerun '${id}.'`);
+        const result = await testRunner.simultaneousMutantRun(plan.runOptions);
+        this.log.info(`Rerun finished for mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
+        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result);
+      })
+      .pipe(mergeAll());
+
+    const completeResult$ = complete$.pipe(map((v) => this.mutationTestReportHelper.reportMutantRunResult(v[0].mutants[0], v[1])));
+
+    return merge(pendingResult$, completeResult$);
+  }
+
+  private retryError(input$: Observable<[SimultaneousMutantRunPlan, ErrorSimultaneousMutantRunResult]>): Observable<MutantResult> {
+    const schedule$ = input$.pipe(
+      mergeMap(([plan, _result]) => {
+        return decomposeSimultaneousMutantRunPlan(plan);
+      }),
+    );
+    return this.testRunnerPool
+      .schedule(schedule$, async (testRunner, plan) => {
+        const [{ id }] = plan.mutants;
+        this.log.info(`Attempting to rerun erroneous result '${id}.'`);
+        const result = await testRunner.simultaneousMutantRun(plan.runOptions);
+        this.log.info(`Rerun finished for erroneous mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
+        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result);
+      })
+      .pipe(mergeAll());
   }
 
   // arguably: these 'as' casts are dangerous if someone modifies these interfaces again
@@ -185,7 +332,7 @@ export class MutationTestExecutor {
   ): Observable<MutantResult> {
     const [partialResult$, completeResult$] = partition(input$, (value) => value[1].status === SimultaneousMutantRunStatus.Partial) as [
       Observable<[SimultaneousMutantRunPlan, PartialSimultaneousMutantRunResult]>,
-      Observable<[SimultaneousMutantRunPlan, InvalidSimultaneousMutantRunResult | ValidSimultaneousMutantRunResult]>,
+      Observable<[SimultaneousMutantRunPlan, CompleteSimultaneousMutantRunResult | ErrorSimultaneousMutantRunResult]>,
     ];
 
     const decomposedPartialResult$: Observable<[SimultaneousMutantRunPlan, MutantRunResult | PendingMutantRunResult]> = partialResult$.pipe(
@@ -210,12 +357,14 @@ export class MutationTestExecutor {
 
     const simultaneousResult$: Observable<MutantResult> = completeResult$.pipe(
       mergeMap(([p, r]) => {
+        //@ts-expect-error
         if (r.status === SimultaneousMutantRunStatus.Invalid) {
           this.log.warn(`Produced an invalid result, assumes that the entire group has survived: ${JSON.stringify(r, null, 2)}`);
           // todo: proper size for invalid result?
           const result = [];
           // eslint-disable-next-line @typescript-eslint/prefer-for-of
           for (let i = 0; i < p.mutants.length; i++) {
+            //@ts-expect-error
             const tmp = this.mutationTestReportHelper.reportMutantRunResult(p.mutants[i], r.invalidResult);
             result.push(tmp);
           }
@@ -237,13 +386,25 @@ export class MutationTestExecutor {
     pendingMutant$: Observable<[SimultaneousMutantRunPlan, PendingMutantRunResult]>,
   ): Observable<[SimultaneousMutantRunPlan, SimultaneousMutantRunResult]> {
     return this.testRunnerPool.schedule(pendingMutant$, async (testRunner, [plan, _pendingResult]) => {
+      this.markRetryStart();
+      const [{ id }] = plan.mutants;
+      this.log.info(`Attempting to rerun '${id}.'`);
       const result = await testRunner.simultaneousMutantRun(plan.runOptions);
+      this.log.info(`Rerun finished for mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
       return [plan, result];
     });
   }
 
   private logMutationRunDone() {
     this.log.info('Finished running mutants in %s.', this.timer.humanReadableElapsed(MARK_MUTATION_TEST_START));
+  }
+
+  private logRetryDone() {
+    if (this.markedRetryStart) {
+      this.log.info('Finished retrying pending mutants in %s.', this.timer.humanReadableElapsed(MARK_RETRY_START));
+    } else {
+      this.log.info('No pending mutants were retried...');
+    }
   }
 
   private logDone() {
@@ -254,6 +415,12 @@ export class MutationTestExecutor {
     if (this.markedMutationTestStart) return;
     this.timer.mark(MARK_MUTATION_TEST_START);
     this.markedMutationTestStart = true;
+  }
+
+  private markRetryStart() {
+    if (this.markedRetryStart) return;
+    this.timer.mark(MARK_RETRY_START);
+    this.markedRetryStart = true;
   }
 
   /**
