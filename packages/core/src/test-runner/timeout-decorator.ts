@@ -12,6 +12,8 @@ import {
 import log4js from 'log4js';
 import { ExpirableTask } from '@stryker-mutator/util';
 
+import { Metrics } from '@stryker-mutator/api/metrics';
+
 import { TestRunnerDecorator } from './test-runner-decorator.js';
 
 /**
@@ -21,7 +23,7 @@ export class TimeoutDecorator extends TestRunnerDecorator {
   private readonly log = log4js.getLogger(TimeoutDecorator.name);
 
   public async dryRun(options: DryRunOptions): Promise<DryRunResult> {
-    const result = await this.run(options, () => super.dryRun(options));
+    const result = await this.run(options, undefined, () => super.dryRun(options));
     if (result === ExpirableTask.TimeoutExpired) {
       return {
         status: DryRunStatus.Timeout,
@@ -32,25 +34,30 @@ export class TimeoutDecorator extends TestRunnerDecorator {
   }
 
   public async mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
-    const result = await this.run(options, () => super.mutantRun(options));
+    const result = await this.run(options, options.activeMutant.id, () => super.mutantRun(options));
+    const metrics = Metrics.metricsFor(options.activeMutant.id);
     if (result === ExpirableTask.TimeoutExpired) {
-      return {
-        status: MutantRunStatus.Timeout,
-      };
+      return captureTestRunBeginMs(
+        {
+          status: MutantRunStatus.Timeout,
+        },
+        metrics,
+      );
     } else {
-      return result;
+      return captureTestRunBeginMs(result, metrics);
     }
   }
 
   private async run<TOptions extends { timeout: number }, TResult>(
     options: TOptions,
+    activeMutantId: string | undefined,
     actRun: () => Promise<TResult>,
     handleTimeout = true,
   ): Promise<TResult | typeof ExpirableTask.TimeoutExpired> {
     this.log.debug('Starting timeout timer (%s ms) for a test run', options.timeout);
     const result = await ExpirableTask.timeout(actRun(), options.timeout);
     if (result === ExpirableTask.TimeoutExpired) {
-      if (handleTimeout) await this.handleTimeout();
+      if (handleTimeout) await this.handleTimeout(activeMutantId);
       return result;
     } else {
       return result;
@@ -58,14 +65,18 @@ export class TimeoutDecorator extends TestRunnerDecorator {
   }
 
   public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    const result = await this.run(options, () => super.simultaneousMutantRun(options), false);
+    const result = await this.run(options, options.groupId, () => super.simultaneousMutantRun(options), false);
+    const metrics = Metrics.metricsFor(options.groupId);
     if (result === ExpirableTask.TimeoutExpired) {
       if (options.mutantRunOptions.length === 1) {
-        await this.handleTimeout();
-        return {
-          status: SimultaneousMutantRunStatus.Complete,
-          results: [{ status: MutantRunStatus.Timeout }],
-        };
+        await this.handleTimeout(options.groupId);
+        return captureTestRunBeginMs(
+          {
+            status: SimultaneousMutantRunStatus.Complete,
+            results: [{ status: MutantRunStatus.Timeout }],
+          },
+          metrics,
+        );
       }
 
       if (this.log.isTraceEnabled()) {
@@ -73,10 +84,10 @@ export class TimeoutDecorator extends TestRunnerDecorator {
         this.log.trace(`Mutant group (${group}) timed out.`);
       }
       const partialResults = await this.formulateEarlyResults?.(options.mutantRunOptions);
-      await this.handleTimeout();
+      await this.handleTimeout(options.groupId);
       if (partialResults) {
         //return this.simpleDecomposedSimultaneousMutantRun(options, group, partialResults);
-        return partialResults;
+        return captureTestRunBeginMs(partialResults, metrics);
       }
       // simultaneous testing is essentially useless if the test-runner is unable to formulate an early result
       // we have no clue here which test timed out and which tests had already been run, this is terrible for performance
@@ -88,12 +99,29 @@ export class TimeoutDecorator extends TestRunnerDecorator {
         }),
       };
     } else {
-      return result;
+      return captureTestRunBeginMs(result, metrics);
     }
   }
 
-  private async handleTimeout(): Promise<void> {
+  private async handleTimeout(id: string | undefined): Promise<void> {
     this.log.debug('Timeout expired, restarting the process and reporting timeout');
-    await this.recover();
+    await this.measuredRecovery(id);
   }
+
+  private measuredRecovery(id: string | undefined): Promise<void> {
+    if (id) {
+      return Metrics.metricsFor(id).timeAwaitedFunction(() => this.recover(), TimeoutDecorator.name, this.handleTimeout.name);
+    } else {
+      return this.recover();
+    }
+  }
+}
+
+function captureTestRunBeginMs<T extends object>(from: T, metrics: Metrics) {
+  if (typeof from === 'object' && 'testRunBeginMs' in from && from.testRunBeginMs) {
+    metrics.addTestRunBeginMs(from.testRunBeginMs as number);
+  } else {
+    metrics.addTestRunBeginMs(0);
+  }
+  return from;
 }

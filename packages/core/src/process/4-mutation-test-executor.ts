@@ -28,6 +28,8 @@ import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
 import { CheckStatus } from '@stryker-mutator/api/check';
 
+import { Metrics } from '@stryker-mutator/api/metrics';
+
 import { coreTokens } from '../di/index.js';
 import { StrictReporter } from '../reporters/strict-reporter.js';
 import { MutationTestReportHelper } from '../reporters/mutation-test-report-helper.js';
@@ -132,6 +134,15 @@ export class MutationTestExecutor {
     await this.mutationTestReportHelper.reportAll(results);
     await this.reporter.wrapUp();
     this.logDone();
+    // todo: remove
+    const dataString = Metrics.exportData();
+    const data = Metrics.getData();
+    const usefulData: Metrics[] = [];
+    data.forEach((v, _k) => {
+      if (v.getFunctionCallCount() > 1) usefulData.push(v);
+    });
+    this.log.info(dataString.slice(0, dataString.length > 512 ? 512 : undefined));
+    this.log.info(JSON.stringify(usefulData, null, 2));
     return results;
   }
 

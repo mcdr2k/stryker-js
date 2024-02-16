@@ -10,6 +10,8 @@ import {
 } from '@stryker-mutator/api/test-runner';
 import { I } from '@stryker-mutator/util';
 
+import { Metrics } from '@stryker-mutator/api/metrics';
+
 import { Timer } from './timer.js';
 
 const { EVENT_RUN_BEGIN, EVENT_TEST_PASS, EVENT_TEST_FAIL, EVENT_RUN_END, EVENT_TEST_END, EVENT_TEST_BEGIN, EVENT_TEST_PENDING, EVENT_SUITE_BEGIN } =
@@ -48,6 +50,7 @@ export class StrykerMochaReporter {
 
   public readonly testTitleToMutantId = new Map<string, string>();
   public readonly mutantIdToStatus = new Map<string, MutantRunStatus>();
+  public testRunBeginMs = 0;
   private isSimultaneousRun = false;
   private done = false;
 
@@ -90,6 +93,7 @@ export class StrykerMochaReporter {
       this.pendingTest = undefined;
       this.timer.reset();
       this.tests = [];
+      this.testRunBeginMs = Metrics.now();
       StrykerMochaReporter.log?.debug('Starting Mocha test run');
     });
 

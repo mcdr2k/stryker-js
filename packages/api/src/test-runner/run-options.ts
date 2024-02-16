@@ -51,6 +51,13 @@ export interface SimultaneousMutantRunOptions extends RunOptions {
    */
   mutantRunOptions: MutantRunOptions[];
 
+  groupId: string;
+
+  /**
+   * The ids of all the mutants within the group.
+   */
+  activeMutantIds: string[];
+
   /**
    * Similar to {@link MutantRunOptions.mutantActivation}. This value is derived from the the values in {@link mutantRunOptions}.
    */
@@ -79,13 +86,21 @@ export function decomposeSimultaneousMutantRunOptions(options: SimultaneousMutan
 
 export function createSimultaneousMutantRunOptions(...options: MutantRunOptions[]): SimultaneousMutantRunOptions {
   if (options.length === 0) throw new Error('Need at least 1 option');
+  const activeMutantIds = determineActiveMutantIds(...options);
+  const groupId = activeMutantIds.toString();
   return {
     mutantRunOptions: options,
+    groupId,
+    activeMutantIds,
     mutantActivation: determineMutantActivation(...options),
     reloadEnvironment: determineReloadEnvironment(...options),
     timeout: determineTimeout(...options),
     disableBail: determineDisableBail(...options),
   };
+}
+
+function determineActiveMutantIds(...options: MutantRunOptions[]): string[] {
+  return options.map((x) => x.activeMutant.id);
 }
 
 function determineMutantActivation(...options: MutantRunOptions[]): MutantActivation {

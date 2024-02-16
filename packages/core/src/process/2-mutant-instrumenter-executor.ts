@@ -65,8 +65,11 @@ export class MutantInstrumenterExecutor {
       .provideClass(coreTokens.workerIdGenerator, IdGenerator)
       .provideFactory(coreTokens.checkerFactory, createCheckerFactory)
       .provideFactory(coreTokens.checkerPool, createCheckerPool);
+
+    const timer = new Timer();
     const checkerPool = checkerPoolProvider.resolve(coreTokens.checkerPool);
     await checkerPool.init();
+    console.log(`Test runner pool was ready in ${timer.humanReadableElapsed()}`);
 
     // Feed the sandbox
     const dryRunProvider = checkerPoolProvider.provideClass(coreTokens.sandbox, Sandbox).provideValue(coreTokens.mutants, instrumentResult.mutants);

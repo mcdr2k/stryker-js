@@ -21,6 +21,7 @@ import {
   MutantRunStatus,
   PartialSimultaneousMutantRunResult,
   PendingMutantRunResult,
+  CompleteSimultaneousMutantRunResult,
 } from '@stryker-mutator/api/test-runner';
 
 import { Context, RootHookObject, Suite } from 'mocha';
@@ -132,7 +133,9 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       this.setIfDefined(this.originalGrep, this.mocha.grep);
     }
     const dryRunResult = await this.run(disableBail, activeMutant.id, mutantActivation);
-    return toMutantRunResult(dryRunResult);
+    const mutantRunResult = toMutantRunResult(dryRunResult);
+    (mutantRunResult as any).testRunBeginMs = StrykerMochaReporter.currentInstance?.testRunBeginMs;
+    return mutantRunResult;
   }
 
   public override async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
@@ -224,11 +227,14 @@ export class MochaTestRunner extends SimultaneousTestRunner {
   ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult> {
     const reporter = StrykerMochaReporter.currentInstance;
     if (reporter) {
+      let result: SimultaneousMutantRunResult;
       if (reporter.isDone()) {
-        return this.formulateSimultaneousResults(mutantRunOptions, reporter, this.instrumenterContext);
+        result = this.formulateSimultaneousResults(mutantRunOptions, reporter, this.instrumenterContext);
       } else {
-        return this.formulatePartialResults(mutantRunOptions, reporter, this.instrumenterContext);
+        result = this.formulatePartialResults(mutantRunOptions, reporter, this.instrumenterContext);
       }
+      (result as any).testRunBeginMs = reporter.testRunBeginMs;
+      return result;
     } else {
       const errorMessage = `Mocha didn't instantiate the ${StrykerMochaReporter.name} correctly. Test result cannot be reported.`;
       this.log.error(errorMessage);
@@ -243,7 +249,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     mutantRunOptions: MutantRunOptions[],
     { tests }: I<StrykerMochaReporter>,
     context: InstrumenterContextWrapper,
-  ): SimultaneousMutantRunResult {
+  ): CompleteSimultaneousMutantRunResult {
     const dryRunResults = [];
     for (const mutant of mutantRunOptions) {
       const { id } = mutant.activeMutant;
@@ -253,7 +259,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       } else {
         const result: CompleteDryRunResult = {
           status: DryRunStatus.Complete,
-          tests: mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests,
+          tests: mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.name)) : tests,
         };
         dryRunResults.push(result);
       }
@@ -278,7 +284,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       } else {
         // todo: verify
         // need to know if test filter is based on (full) title or the actual unique identifier of a test
-        const relatedTests = mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.id)) : tests;
+        const relatedTests = mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.name)) : tests;
         const actualTestedLength = mutant.testFilter ? mutant.testFilter.length : tests.length;
         const status = mutantIdToStatus.get(id);
         if (relatedTests.length === actualTestedLength) {

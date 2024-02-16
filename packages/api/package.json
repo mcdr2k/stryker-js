@@ -21,6 +21,7 @@
     "./core": "./dist/src/core/index.js",
     "./ignore": "./dist/src/ignore/index.js",
     "./logging": "./dist/src/logging/index.js",
+    "./metrics": "./dist/src/metrics/index.js",
     "./plugin": "./dist/src/plugin/index.js",
     "./report": "./dist/src/report/index.js",
     "./test-runner": "./dist/src/test-runner/index.js"

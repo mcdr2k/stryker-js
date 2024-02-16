@@ -8,6 +8,8 @@ import {
   TestRunnerCapabilities,
 } from '@stryker-mutator/api/test-runner';
 
+import { Metrics, SessionType } from '@stryker-mutator/api/metrics';
+
 import { TestRunnerDecorator } from './test-runner-decorator.js';
 
 enum TestEnvironmentState {
@@ -57,7 +59,10 @@ export class ReloadEnvironmentDecorator extends TestRunnerDecorator {
         }
       }
     }
+    const metrics = Metrics.metricsFor(options.activeMutant.id);
+    const session = metrics.startTestSession(this.toTestSessionType(this.testEnvironment, newState));
     const result = await super.mutantRun(options);
+    metrics.endTestSession(session);
     this.testEnvironment = newState;
     return result;
   }
@@ -87,12 +92,30 @@ export class ReloadEnvironmentDecorator extends TestRunnerDecorator {
         }
       }
     }
+    const metrics = Metrics.metricsFor(options.groupId);
+    const session = metrics.startTestSession(this.toTestSessionType(this.testEnvironment, newState));
     const result = await super.simultaneousMutantRun(options);
+    metrics.endTestSession(session);
     this.testEnvironment = newState;
     return result;
   }
 
   private async testRunnerIsCapableOfReload() {
     return (await this.capabilities()).reloadEnvironment;
+  }
+
+  private toTestSessionType(currentState: TestEnvironmentState, newState: TestEnvironmentState): SessionType {
+    switch (currentState) {
+      case TestEnvironmentState.Pristine: {
+        return SessionType.Initial;
+      }
+      case TestEnvironmentState.Loaded: {
+        if (newState === TestEnvironmentState.LoadedStaticMutant) return SessionType.Reset;
+        return SessionType.Reload;
+      }
+      case TestEnvironmentState.LoadedStaticMutant: {
+        return SessionType.Reset;
+      }
+    }
   }
 }

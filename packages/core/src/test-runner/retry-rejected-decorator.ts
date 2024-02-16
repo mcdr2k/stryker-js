@@ -12,6 +12,8 @@ import {
 import { errorToString } from '@stryker-mutator/util';
 import log4js from 'log4js';
 
+import { Metrics } from '@stryker-mutator/api/metrics';
+
 import { OutOfMemoryError } from '../child-proxy/out-of-memory-error.js';
 
 import { TestRunnerDecorator } from './test-runner-decorator.js';
@@ -38,7 +40,12 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
   }
 
   public async mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
-    const result = await this.run(() => super.mutantRun(options));
+    const result = await Metrics.metricsFor(options.activeMutant.id).timeAwaitedFunction(
+      () => this.run(() => super.mutantRun(options)),
+      RetryRejectedDecorator.name,
+      this.mutantRun.name,
+    );
+    //const result = await this.run(() => super.mutantRun(options));
     if (typeof result === 'string') {
       return {
         status: MutantRunStatus.Error,
@@ -98,7 +105,12 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
   }
 
   public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    const result = await this.simRun(options);
+    const result = await Metrics.metricsFor(options.groupId).timeAwaitedFunction(
+      () => this.simRun(options),
+      RetryRejectedDecorator.name,
+      this.simultaneousMutantRun.name,
+    );
+    //const result = await this.simRun(options);
 
     if (typeof result === 'string') {
       return {
