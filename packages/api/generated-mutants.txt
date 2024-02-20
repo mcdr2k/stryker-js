@@ -1,0 +1,201 @@
+[
+  {
+    "id": "189",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers determineHitLimitReached should determine a timeout result when hit count is higher than limit",
+      "runResultHelpers determineHitLimitReached should not determine a timeout result when hit count is less than or equal to limit"
+    ]
+  },
+  {
+    "id": "190",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers determineHitLimitReached should determine a timeout result when hit count is higher than limit",
+      "runResultHelpers determineHitLimitReached should not determine a timeout result when hit count is less than or equal to limit"
+    ]
+  },
+  {
+    "id": "199",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers determineHitLimitReached should determine a timeout result when hit count is higher than limit",
+      "runResultHelpers determineHitLimitReached should not determine a timeout result when hit count is less than or equal to limit"
+    ]
+  },
+  {
+    "id": "198",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers determineHitLimitReached should determine a timeout result when hit count is higher than limit",
+      "runResultHelpers determineHitLimitReached should not determine a timeout result when hit count is less than or equal to limit"
+    ]
+  },
+  {
+    "id": "200",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers determineHitLimitReached should determine a timeout result when hit count is higher than limit",
+      "runResultHelpers determineHitLimitReached should not determine a timeout result when hit count is less than or equal to limit"
+    ]
+  },
+  {
+    "id": "201",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers determineHitLimitReached should determine a timeout result when hit count is higher than limit"
+    ]
+  },
+  {
+    "id": "203",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers determineHitLimitReached should determine a timeout result when hit count is higher than limit"
+    ]
+  },
+  {
+    "id": "204",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should convert \"timeout\" to \"timeout\"",
+      "runResultHelpers toMutantRunResult should convert \"error\" to \"error\"",
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should report an empty suite as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "210",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "211",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "212",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "213",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should report an empty suite as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "215",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "214",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should report an empty suite as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "216",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "218",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should report an empty suite as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "217",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "219",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should report an empty suite as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "220",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should report an empty suite as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "221",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report all failed tests as \"killed\" by default",
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option",
+      "runResultHelpers toMutantRunResult should report only succeeded tests as \"survived\"",
+      "runResultHelpers toMutantRunResult should report an empty suite as \"survived\"",
+      "runResultHelpers toMutantRunResult should set nrOfTests with the amount of tests that weren't `skipped`"
+    ]
+  },
+  {
+    "id": "225",
+    "isStatic": false,
+    "tests": [
+      "runResultHelpers toMutantRunResult should report a single tests as \"killed\" by when given the option"
+    ]
+  }
+]

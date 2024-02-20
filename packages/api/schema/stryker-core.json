@@ -544,6 +544,26 @@
         "type": "string"
       },
       "default": []
+    },
+    "exportMutantsOnly": {
+      "description": "Mutates the project and then exports the generated mutants to a file. After the mutants have been exported, the program terminates.",
+      "type":"boolean",
+      "default": false
+    },
+    "exportMutantsFile": {
+      "description": "Target file where the generated mutants should be exported to.",
+      "type":"string",
+      "default": "generated-mutants.txt"
+    },
+    "importMutantGroups": {
+      "description": "Indicates whether the program should import mutant groups from a file. These groups will be used for simultaneous testing.",
+      "type":"boolean",
+      "default": false
+    },
+    "importMutantGroupsFile": {
+      "description": "File from which mutant groups are imported.",
+      "type":"string",
+      "default": "grouped-mutants.txt"
     }
   }
 }

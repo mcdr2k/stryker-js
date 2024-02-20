@@ -74,3 +74,12 @@ export interface PartialSimultaneousMutantRunResult {
   status: SimultaneousMutantRunStatus.Partial;
   partialResults: Array<MutantRunResult | PendingMutantRunResult>;
 }
+export function isCompleteSimultaneousMutantRunResult(result: SimultaneousMutantRunResult): result is CompleteSimultaneousMutantRunResult {
+  return result.status === SimultaneousMutantRunStatus.Complete;
+}
+export function isErrorSimultaneousMutantRunResult(result: SimultaneousMutantRunResult): result is ErrorSimultaneousMutantRunResult {
+  return result.status === SimultaneousMutantRunStatus.Error;
+}
+export function isPartialSimultaneousMutantRunResult(result: SimultaneousMutantRunResult): result is PartialSimultaneousMutantRunResult {
+  return result.status === SimultaneousMutantRunStatus.Partial;
+}

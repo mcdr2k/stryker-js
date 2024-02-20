@@ -187,6 +187,10 @@ export class StrykerCli {
         `Choose whether or not to clean the temp dir (which is "${defaultOptions.tempDirName}" inside the current working directory by default) after a run.\n - false: Never delete the temp dir;\n - true: Delete the tmp dir after a successful run;\n - always: Always delete the temp dir, regardless of whether the run was successful.`,
         parseCleanDirOption,
       )
+      .option('--exportMutantsOnly')
+      .option('--exportMutantsFile <file>')
+      .option('--importMutantGroups')
+      .option('--importMutantGroupsFile <file>')
       .showSuggestionAfterError()
       .parse(this.argv);
 

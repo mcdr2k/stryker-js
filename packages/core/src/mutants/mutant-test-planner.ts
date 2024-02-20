@@ -1,4 +1,5 @@
 import path from 'path';
+import * as fs from 'fs';
 
 import { TestResult, createSimultaneousMutantRunOptions, regularToSimultaneousMutantRunOptions } from '@stryker-mutator/api/test-runner';
 import {
@@ -74,6 +75,31 @@ export class MutantTestPlanner {
 
   public async makeSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number): Promise<SimultaneousMutantRunPlan[]> {
     // return mutants.map(MutantTestPlanner.planSingleSimultaneousMutant);
+    if (this.options.importMutantGroups) {
+      this.logger.info(`Attempting to create simultaneous mutant run plans from the import file ${this.options.importMutantGroupsFile}.`);
+      const input = JSON.parse(fs.readFileSync(this.options.importMutantGroupsFile).toString());
+      const groups: string[][] = input.solverResult.solution;
+      const result: SimultaneousMutantRunPlan[] = [];
+      let count = 0;
+      for (const group of groups) {
+        const mutantRunPlans: MutantRunPlan[] = [];
+        for (const mutantId of group) {
+          const mutantRunPlan = mutants.find((m) => m.mutant.id === mutantId);
+          if (mutantRunPlan) {
+            mutantRunPlans.push(mutantRunPlan);
+          } else {
+            throw new Error(`Could not find mutant '${mutantId}' among the mutants. Importing mutant groups failed.`);
+          }
+        }
+        count += mutantRunPlans.length;
+        result.push(MutantTestPlanner.planSimultaneousMutant(mutantRunPlans));
+      }
+      if (count !== mutants.length) {
+        this.logger.error(JSON.stringify(mutants.map((x) => x.mutant.id)));
+        //throw new Error(`Imported mutant groups are lacking some mutants, expected ${mutants.length} but got ${count}`);
+      }
+      return result;
+    }
     return this.makeSimpleSimultaneousPlan(mutants, testCount);
   }
 

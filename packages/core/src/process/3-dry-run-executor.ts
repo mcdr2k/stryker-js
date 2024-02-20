@@ -149,6 +149,7 @@ export class DryRunExecutor {
     const timing = this.calculateTiming(grossTimeMS, result.tests);
     const dryRunCompleted = { result, timing, capabilities };
     this.reporter.onDryRunCompleted(dryRunCompleted);
+
     return dryRunCompleted;
   }
 

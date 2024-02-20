@@ -100,6 +100,10 @@ describe(OptionsValidator.name, () => {
         disableBail: false,
         disableSimultaneousTesting: true,
         ignorers: [],
+        exportMutantsOnly: false,
+        exportMutantsFile: 'generated-mutants.txt',
+        importMutantGroups: false,
+        importMutantGroupsFile: 'grouped-mutants.txt',
       };
       expect(options).deep.eq(expectedOptions);
     });

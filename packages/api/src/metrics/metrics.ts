@@ -40,7 +40,7 @@ export class Metrics {
   }
 
   public static now(): number {
-    return performance.now();
+    return Date.now();
   }
 
   public addTestRunBeginMs(testRunBeginMs: number): void {
@@ -66,6 +66,7 @@ export class Metrics {
    */
   public timeFunction<T>(func: () => T, firstQualifiedName: string, ...specification: string[]): T {
     const measurement = new MeasuredFunction(Metrics.createQualifiedName(firstQualifiedName, specification));
+    // measurement.stack = new Error().stack;
     this.functionCalls.push(measurement);
     try {
       const result = func();
@@ -83,6 +84,7 @@ export class Metrics {
    */
   public async timeAwaitedFunction<T>(func: () => Promise<T>, firstQualifiedName: string, ...specification: string[]): Promise<T> {
     const measurement = new MeasuredFunction(Metrics.createQualifiedName(firstQualifiedName, specification));
+    // measurement.stack = new Error().stack;
     this.functionCalls.push(measurement);
     try {
       const result = await func();
@@ -101,6 +103,7 @@ export class Metrics {
 class Measurement {
   private readonly start: number;
   private end = 0;
+  public stack?: string;
 
   constructor() {
     this.start = Metrics.now();

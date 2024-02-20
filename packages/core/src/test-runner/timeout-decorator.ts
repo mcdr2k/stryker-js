@@ -83,6 +83,7 @@ export class TimeoutDecorator extends TestRunnerDecorator {
         const group = options.mutantRunOptions.map((o) => o.activeMutant.id);
         this.log.trace(`Mutant group (${group}) timed out.`);
       }
+      // todo: will get stuck if the child process is in an infinite loop... (js is singlethreaded...)
       const partialResults = await this.formulateEarlyResults?.(options.mutantRunOptions);
       await this.handleTimeout(options.groupId);
       if (partialResults) {
