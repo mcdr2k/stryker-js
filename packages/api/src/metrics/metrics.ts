@@ -15,7 +15,6 @@ export class Metrics {
   //private readonly timer = new Timer();
   private readonly testSessions: MeasuredTestSession[] = [];
   private readonly functionCalls: MeasuredFunction[] = [];
-  private readonly testRunBeginMs: number[] = [];
 
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor(activeMutant: string) {
@@ -43,16 +42,15 @@ export class Metrics {
     return Date.now();
   }
 
-  public addTestRunBeginMs(testRunBeginMs: number): void {
-    this.testRunBeginMs.push(testRunBeginMs);
+  public measureTestSession(type: SessionType): MeasuredTestSession {
+    const session = new MeasuredTestSession(type);
+    this.testSessions.push(session);
+    return session;
   }
 
-  public startTestSession(type: SessionType): number {
-    return this.testSessions.push(new MeasuredTestSession(type));
-  }
-
-  public endTestSession(session: number): void {
-    this.testSessions[session - 1].markEnd();
+  public getRunningTestSession(): MeasuredTestSession {
+    if (this.testSessions.length === 0) throw new Error('Cannot get test session, none were started yet.');
+    return this.testSessions[this.testSessions.length - 1];
   }
 
   public getFunctionCallCount(): number {
@@ -132,12 +130,20 @@ class Measurement {
   }
 }
 
-class MeasuredTestSession extends Measurement {
+export class MeasuredTestSession extends Measurement {
   public readonly type: SessionType;
+  private testRunBeginMs: number | undefined = undefined;
 
   constructor(type: SessionType) {
     super();
     this.type = type;
+  }
+
+  public setTestRunBeginMs(testRunBeginMs: number): void {
+    if (this.testRunBeginMs != undefined) {
+      throw new Error('Cannot set testRunBeginMs because it was already set.');
+    }
+    this.testRunBeginMs = testRunBeginMs;
   }
 }
 

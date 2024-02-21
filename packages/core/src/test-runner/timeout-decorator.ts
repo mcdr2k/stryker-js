@@ -119,10 +119,9 @@ export class TimeoutDecorator extends TestRunnerDecorator {
 }
 
 function captureTestRunBeginMs<T extends object>(from: T, metrics: Metrics) {
+  const testSession = metrics.getRunningTestSession();
   if (typeof from === 'object' && 'testRunBeginMs' in from && from.testRunBeginMs) {
-    metrics.addTestRunBeginMs(from.testRunBeginMs as number);
-  } else {
-    metrics.addTestRunBeginMs(0);
+    testSession.setTestRunBeginMs(from.testRunBeginMs as number);
   }
   return from;
 }

@@ -60,9 +60,9 @@ export class ReloadEnvironmentDecorator extends TestRunnerDecorator {
       }
     }
     const metrics = Metrics.metricsFor(options.activeMutant.id);
-    const session = metrics.startTestSession(this.toTestSessionType(this.testEnvironment, newState));
+    const session = metrics.measureTestSession(this.toTestSessionType(this.testEnvironment, newState));
     const result = await super.mutantRun(options);
-    metrics.endTestSession(session);
+    session.markEnd();
     this.testEnvironment = newState;
     return result;
   }
@@ -93,9 +93,9 @@ export class ReloadEnvironmentDecorator extends TestRunnerDecorator {
       }
     }
     const metrics = Metrics.metricsFor(options.groupId);
-    const session = metrics.startTestSession(this.toTestSessionType(this.testEnvironment, newState));
+    const session = metrics.measureTestSession(this.toTestSessionType(this.testEnvironment, newState));
     const result = await super.simultaneousMutantRun(options);
-    metrics.endTestSession(session);
+    session.markEnd();
     this.testEnvironment = newState;
     return result;
   }

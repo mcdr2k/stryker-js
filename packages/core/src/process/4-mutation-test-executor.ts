@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 
 import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap } from 'rxjs';
-import { toArray, map, shareReplay, tap, mergeAll, filter } from 'rxjs/operators';
+import { toArray, map, shareReplay, tap, mergeAll } from 'rxjs/operators';
 import { tokens, commonTokens } from '@stryker-mutator/api/plugin';
 import {
   MutantResult,
@@ -19,7 +19,6 @@ import {
   TestRunnerCapabilities,
   SimultaneousMutantRunResult,
   MutantRunResult,
-  SimultaneousMutantRunStatus,
   PartialSimultaneousMutantRunResult,
   MutantRunStatus,
   CompleteSimultaneousMutantRunResult,
