@@ -3,6 +3,8 @@ import { notEmpty } from '@stryker-mutator/util';
 import { BehaviorSubject, filter, ignoreElements, lastValueFrom, mergeMap, Observable, ReplaySubject, Subject, takeUntil, tap, zip } from 'rxjs';
 import { Disposable, tokens } from 'typed-inject';
 
+import { CheckerAndTestRunnerPoolMetrics } from '@stryker-mutator/api/metrics';
+
 import { CheckerFacade } from '../checker/index.js';
 import { coreTokens } from '../di/index.js';
 
@@ -19,12 +21,12 @@ export interface Resource extends Partial<Disposable> {
 
 createTestRunnerPool.inject = tokens(coreTokens.testRunnerFactory, coreTokens.testRunnerConcurrencyTokens);
 export function createTestRunnerPool(factory: () => TestRunnerResource, concurrencyToken$: Observable<number>): Pool<TestRunner> {
-  return new Pool(factory, concurrencyToken$);
+  return new Pool(factory, concurrencyToken$, 'testRunner');
 }
 
 createCheckerPool.inject = tokens(coreTokens.checkerFactory, coreTokens.checkerConcurrencyTokens);
 export function createCheckerPool(factory: () => CheckerFacade, concurrencyToken$: Observable<number>): Pool<CheckerFacade> {
-  return new Pool<CheckerFacade>(factory, concurrencyToken$);
+  return new Pool<CheckerFacade>(factory, concurrencyToken$, 'checker');
 }
 
 /**
@@ -82,7 +84,7 @@ export class Pool<TResource extends Resource> implements Disposable {
   // The queued work items. This is a replay subject, so scheduled work items can easily be rejected after it was picked up
   private readonly todoSubject = new ReplaySubject<WorkItem<TResource, any, any>>();
 
-  constructor(factory: () => TResource, concurrencyToken$: Observable<number>) {
+  constructor(factory: () => TResource, concurrencyToken$: Observable<number>, type: string | undefined = undefined) {
     // Stream resources that are ready to pick up work
     const resourcesSubject = new Subject<TResource>();
 
@@ -111,9 +113,11 @@ export class Pool<TResource extends Resource> implements Disposable {
             // Don't create new resources when disposed
             return;
           }
+          const measurement = type ? CheckerAndTestRunnerPoolMetrics.timeResource(type) : undefined;
           const resource = factory();
           this.createdResources.push(resource);
           await resource.init?.();
+          measurement?.markEnd();
           return resource;
         }, MAX_CONCURRENT_INIT),
         filter(notEmpty),

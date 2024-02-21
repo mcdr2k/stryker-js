@@ -8,6 +8,94 @@
  * A test session is done when the first test is about to be started.
  */
 // Stryker disable all
+
+class Measurement {
+  private readonly start: number;
+  private end: number | undefined = undefined;
+  public stack?: string;
+
+  constructor() {
+    this.start = Metrics.now();
+  }
+
+  public markEnd() {
+    if (this.end != undefined) {
+      throw new Error('end already marked');
+    }
+    this.end = Metrics.now();
+  }
+
+  public getStart() {
+    return this.start;
+  }
+
+  public getEnd() {
+    return this.end;
+  }
+
+  public getElapsedMs() {
+    if (this.end == undefined) {
+      throw new Error('end not marked');
+    }
+    return this.end - this.start;
+  }
+}
+
+export class CheckerAndTestRunnerPoolMetrics {
+  private static readonly timedResources: CheckerAndTestRunnerPoolMeasurement[] = [];
+
+  public static timeResource(type: string): Measurement {
+    const measurement = new CheckerAndTestRunnerPoolMeasurement(type);
+    this.timedResources.push(measurement);
+    return measurement;
+  }
+
+  public static exportData(): string {
+    return JSON.stringify(CheckerAndTestRunnerPoolMetrics.timedResources, null, 2);
+  }
+}
+
+export class CheckerAndTestRunnerPoolMeasurement extends Measurement {
+  private readonly type: string;
+
+  constructor(type: string) {
+    super();
+    this.type = type;
+  }
+}
+
+export class MeasuredTestSession extends Measurement {
+  public readonly type: SessionType;
+  private testRunBeginMs: number | undefined = undefined;
+
+  constructor(type: SessionType) {
+    super();
+    this.type = type;
+  }
+
+  public setTestRunBeginMs(testRunBeginMs: number): void {
+    if (this.testRunBeginMs != undefined) {
+      throw new Error('Cannot set testRunBeginMs because it was already set.');
+    }
+    this.testRunBeginMs = testRunBeginMs;
+  }
+}
+
+class MeasuredFunction extends Measurement {
+  public readonly functionName;
+
+  constructor(functionName: string) {
+    super();
+    this.functionName = functionName;
+  }
+}
+
+export enum SessionType {
+  Initial = 'initial',
+  Reload = 'reload',
+  Reset = 'reset',
+}
+
 export class Metrics {
   private static readonly data = new Map<string, Metrics>();
 
@@ -96,69 +184,5 @@ export class Metrics {
     if (specification.length === 0) return firstQualifiedName;
     return firstQualifiedName + '#' + specification.join('#');
   }
-}
-
-class Measurement {
-  private readonly start: number;
-  private end = 0;
-  public stack?: string;
-
-  constructor() {
-    this.start = Metrics.now();
-  }
-
-  public markEnd() {
-    if (this.end !== 0) {
-      throw new Error('end already marked');
-    }
-    this.end = Metrics.now();
-  }
-
-  public getStart() {
-    return this.start;
-  }
-
-  public getEnd() {
-    return this.end;
-  }
-
-  public getElapsedMs() {
-    if (this.end === 0) {
-      throw new Error('end not marked');
-    }
-    return this.end - this.start;
-  }
-}
-
-export class MeasuredTestSession extends Measurement {
-  public readonly type: SessionType;
-  private testRunBeginMs: number | undefined = undefined;
-
-  constructor(type: SessionType) {
-    super();
-    this.type = type;
-  }
-
-  public setTestRunBeginMs(testRunBeginMs: number): void {
-    if (this.testRunBeginMs != undefined) {
-      throw new Error('Cannot set testRunBeginMs because it was already set.');
-    }
-    this.testRunBeginMs = testRunBeginMs;
-  }
-}
-
-class MeasuredFunction extends Measurement {
-  public readonly functionName;
-
-  constructor(functionName: string) {
-    super();
-    this.functionName = functionName;
-  }
-}
-
-export enum SessionType {
-  Initial = 'initial',
-  Reload = 'reload',
-  Reset = 'reset',
 }
 // Stryker restore all

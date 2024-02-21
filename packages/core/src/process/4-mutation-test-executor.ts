@@ -32,7 +32,7 @@ import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
 import { CheckStatus } from '@stryker-mutator/api/check';
 
-import { Metrics } from '@stryker-mutator/api/metrics';
+import { CheckerAndTestRunnerPoolMeasurement, CheckerAndTestRunnerPoolMetrics, Metrics } from '@stryker-mutator/api/metrics';
 
 import { coreTokens } from '../di/index.js';
 import { StrictReporter } from '../reporters/strict-reporter.js';
@@ -161,6 +161,7 @@ export class MutationTestExecutor {
     if (data.size > 0) {
       this.log.info(JSON.stringify(data.entries().next(), null, 2));
     }
+    this.log.info(CheckerAndTestRunnerPoolMetrics.exportData());
     return results;
   }
 
