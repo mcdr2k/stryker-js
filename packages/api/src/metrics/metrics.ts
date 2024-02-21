@@ -5,7 +5,8 @@
  * Measure total duration of mutant group
  *
  * Measure duration of test sessions. In particular, measure the amount of time required to start a test session.
- * A test session is done when the first test is about to be started.
+ * The duration of creating a test session is measured such that the start timestamp is on the first call to simultaneousTesting
+ * and the end timestamp is right before the first test is run.
  */
 // Stryker disable all
 

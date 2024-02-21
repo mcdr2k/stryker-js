@@ -83,7 +83,16 @@ export class TimeoutDecorator extends TestRunnerDecorator {
         this.log.trace(`Mutant group (${options.groupId}) timed out.`);
       }
       // todo: will get stuck if the child process is in an infinite loop... (js is singlethreaded...)
-      const partialResults = await this.formulateEarlyResults?.(options.mutantRunOptions);
+      let partialResults: SimultaneousMutantRunResult | undefined;
+      if (this.formulateEarlyResults) {
+        const maybePartialResults = await ExpirableTask.timeout(this.formulateEarlyResults(options.mutantRunOptions), 5000);
+        if (maybePartialResults === ExpirableTask.TimeoutExpired) {
+          this.log.info(`Retrieving partial results failed for group ${options.groupId}. Assumed actual timeout.`);
+        } else {
+          partialResults = maybePartialResults;
+          this.log.info(`Retrieved partial results successfully for group ${options.groupId}.`);
+        }
+      }
       await this.handleTimeout(options.groupId);
       if (partialResults) {
         //return this.simpleDecomposedSimultaneousMutantRun(options, group, partialResults);
