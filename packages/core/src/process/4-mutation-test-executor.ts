@@ -156,17 +156,11 @@ export class MutationTestExecutor {
     await this.mutationTestReportHelper.reportAll(results);
     await this.reporter.wrapUp();
     this.logDone();
-    // todo: remove
-    const dataString = Metrics.exportData();
+
     const data = Metrics.getData();
-    const usefulData: Metrics[] = [];
-    data.forEach((v, _k) => {
-      if (v.getFunctionCallCount() > 1) usefulData.push(v);
-    });
-    this.log.info(dataString.slice(0, dataString.length > 512 ? 512 : undefined));
-    const focus = usefulData.find((m) => m.identifier === '189,209');
-    this.log.info(JSON.stringify(focus, null, 2));
-    //this.log.info(JSON.stringify(usefulData, null, 2));
+    if (data.size > 0) {
+      this.log.info(JSON.stringify(data.entries().next(), null, 2));
+    }
     return results;
   }
 
@@ -245,21 +239,29 @@ export class MutationTestExecutor {
 
     const singularMutantResult$ = singularMutant$.pipe(
       mergeMap((planWithResult) => {
-        this.log.info(`Singular Group ${planWithResult[0].runOptions.groupId} COMPLETED (with ${planWithResult[1].status}).`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Singular Group ${planWithResult[0].runOptions.groupId} COMPLETED (with ${planWithResult[1].status}).`);
+        }
         return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(planWithResult[0].mutants, planWithResult[1]);
       }),
     );
 
     const completedMutantGroupResult$ = completedMutantGroup$.pipe(
       mergeMap((v) => {
-        this.log.info(`Group ${v[0].runOptions.groupId} COMPLETED.`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Group ${v[0].runOptions.groupId} COMPLETED.`);
+        }
         return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(v[0].mutants, v[1]);
       }),
     );
 
     // 'as' cast here is dangerous if types change!
     const partialOrErrorResult$ = partialOrErrorMutantGroup$.pipe(
-      tap((planWithResult) => this.log.info(`Group ${planWithResult[0].runOptions.groupId} PARTIALED OR ERRORED (${planWithResult[1].status}).`)),
+      tap((planWithResult) => {
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Group ${planWithResult[0].runOptions.groupId} PARTIALED OR ERRORED (${planWithResult[1].status}).`);
+        }
+      }),
       (o) =>
         this.retryPartialOrError(o as Observable<[SimultaneousMutantRunPlan, ErrorSimultaneousMutantRunResult | PartialSimultaneousMutantRunResult]>),
     );
@@ -282,7 +284,9 @@ export class MutationTestExecutor {
   private retryPartial(input$: Observable<[SimultaneousMutantRunPlan, PartialSimultaneousMutantRunResult]>): Observable<MutantResult> {
     const schedule$ = input$.pipe(
       mergeMap(([plan, result]) => {
-        this.log.info(`Group ${plan.runOptions.groupId} in #retryPartial`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Group ${plan.runOptions.groupId} in #retryPartial`);
+        }
         const L = result.partialResults.length;
         const newPlans = decomposeSimultaneousMutantRunPlan(plan);
         const tmp: Array<[SimultaneousMutantRunPlan, MutantRunResult | PendingMutantRunResult]> = [];
@@ -299,9 +303,13 @@ export class MutationTestExecutor {
       .schedule(pending$, async (testRunner, [plan, _pendingResult]) => {
         this.markRetryStart();
         const id = plan.runOptions.groupId;
-        this.log.info(`Attempting to rerun '${id}.'`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Attempting to rerun '${id}.'`);
+        }
         const result = await testRunner.simultaneousMutantRun(plan.runOptions);
-        this.log.info(`Rerun finished for mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Rerun finished for mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
+        }
         return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result);
       })
       .pipe(mergeAll());
@@ -315,16 +323,22 @@ export class MutationTestExecutor {
   private retryError(input$: Observable<[SimultaneousMutantRunPlan, ErrorSimultaneousMutantRunResult]>): Observable<MutantResult> {
     const schedule$ = input$.pipe(
       mergeMap(([plan, _result]) => {
-        this.log.info(`Group ${plan.runOptions.groupId} in #retryError`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Group ${plan.runOptions.groupId} in #retryError`);
+        }
         return decomposeSimultaneousMutantRunPlan(plan);
       }),
     );
     return this.testRunnerPool
       .schedule(schedule$, async (testRunner, plan) => {
         const id = plan.runOptions.groupId;
-        this.log.info(`Attempting to rerun erroneous result '${id}.'`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Attempting to rerun erroneous result '${id}.'`);
+        }
         const result = await testRunner.simultaneousMutantRun(plan.runOptions);
-        this.log.info(`Rerun finished for erroneous mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
+        if (this.log.isTraceEnabled()) {
+          this.log.trace(`Rerun finished for erroneous mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
+        }
         return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result);
       })
       .pipe(mergeAll());
