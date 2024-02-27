@@ -1,10 +1,8 @@
 import path from 'path';
 
-import { fail } from 'assert';
-
 import { assertions, factory, TempTestDirectorySandbox, testInjector } from '@stryker-mutator/test-helpers';
 
-import { regularToSimultaneousMutantRunOptions, TestStatus } from '@stryker-mutator/api/test-runner';
+import { TestStatus } from '@stryker-mutator/api/test-runner';
 
 import { expect } from 'chai';
 

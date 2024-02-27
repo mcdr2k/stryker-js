@@ -6,8 +6,6 @@ import { Disposable, tokens } from 'typed-inject';
 import { commonTokens } from '@stryker-mutator/api/plugin';
 import { Logger } from '@stryker-mutator/api/logging';
 
-import { Timer } from '../utils/timer.js';
-
 export class ConcurrencyTokenProvider implements Disposable {
   private readonly concurrencyCheckers: number;
   private readonly concurrencyTestRunners: number;
