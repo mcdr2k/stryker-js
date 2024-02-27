@@ -435,7 +435,7 @@ export class MutationTestExecutor {
       this.log.info('Simultaneous testing is not performed because the test-runner does not support it');
       return false;
     }
-    if (this.options.disableSimultaneousTesting) {
+    if (!this.options.enableSimultaneousTesting) {
       this.log.info('Simultaneous testing is not performed because it was disabled by the configuration');
       return false;
     }

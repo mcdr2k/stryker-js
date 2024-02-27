@@ -98,7 +98,6 @@ describe(OptionsValidator.name, () => {
         tsconfigFile: 'tsconfig.json',
         warnings: true,
         disableBail: false,
-        disableSimultaneousTesting: true,
         ignorers: [],
         exportMutantsOnly: false,
         exportMutantsFile: 'reports/generated-mutants.json',
@@ -106,6 +105,7 @@ describe(OptionsValidator.name, () => {
         importMutantGroupsFile: 'reports/grouped-mutants.json',
         measureMetrics: false,
         measureMetricsOutputFile: 'reports/metrics.json',
+        enableSimultaneousTesting: false,
       };
       expect(options).deep.eq(expectedOptions);
     });

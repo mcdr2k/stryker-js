@@ -6,7 +6,7 @@ import log4js from 'log4js';
 import { createInjector } from 'typed-inject';
 import { commonTokens, PluginContext, Injector } from '@stryker-mutator/api/plugin';
 
-import { MutantRunResult, TestResult } from '@stryker-mutator/api/test-runner';
+import { MutantRunResult, TestResult, TestStatus } from '@stryker-mutator/api/test-runner';
 
 import { LogConfigurator } from '../logging/index.js';
 import { deserialize, serialize } from '../utils/string-utils.js';
@@ -203,7 +203,9 @@ export class ChildProcessProxyWorker {
     }
   }
 
-  public reportTestResult(testResult: TestResult): boolean {
+  public reportTestResult(testResult: TestResult): void {
+    // do not really care about skipped tests, at least for now...
+    if (testResult.status === TestStatus.Skipped) return;
     const update: TestResultTestUpdate = {
       type: TestUpdateType.TestResult,
       testResult,
@@ -221,8 +223,6 @@ export class ChildProcessProxyWorker {
     } catch (e) {
       this.log?.error(`Error occurred in reportTestResult: ${JSON.stringify(e)}`);
     }
-    // todo: fix return value
-    return false;
   }
 
   public reportMutantResult(mutantId: string, result: MutantRunResult): void {

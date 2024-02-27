@@ -122,8 +122,8 @@ export class TimeoutDecorator extends TestRunnerDecorator {
         this.strykerLiveMutantRun.name,
       );
     } catch (e) {
-      await this.handleTimeout(options.groupId);
       if (e instanceof LiverunTimeoutError) {
+        await this.handleTimeout(options.groupId);
         return e.result;
       }
       this.log.error(`Unidentified error occurred in pipe for group ${options.groupId}: ${JSON.stringify(e)}.`);

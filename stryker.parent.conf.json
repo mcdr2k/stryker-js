@@ -3,7 +3,7 @@
   "coverageAnalysis": "perTest",
   "testRunner": "mocha",
   "measureMetrics": false,
-  "disableSimultaneousTesting": false,
+  "enableSimultaneousTesting": true,
   "disableBail": false,
   "fileLogLevel": "trace",
   "reporters": [

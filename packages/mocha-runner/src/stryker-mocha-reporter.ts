@@ -132,7 +132,7 @@ export class StrykerMochaReporter {
       this.pendingTest = test;
       this.pendingCount++;
       StrykerMochaReporter.liveReporter?.startTest(test.fullTitle());
-      if (this.pendingCount > 1) {
+      if (this.isSimultaneousRun && this.pendingCount > 1) {
         StrykerMochaReporter.log?.fatal(`Multiple tests (${this.pendingCount}) were executed simultaneously, this is a problem!`);
       }
     });
@@ -144,7 +144,7 @@ export class StrykerMochaReporter {
 
     this.runner.on(EVENT_TEST_PENDING, (test: Mocha.Test) => {
       if (StrykerMochaReporter.log?.isTraceEnabled()) {
-        // StrykerMochaReporter.log?.trace(`Test skipped: ${test.fullTitle()}.`);
+        StrykerMochaReporter.log?.trace(`Test skipped: ${test.fullTitle()}.`);
       }
       const title = test.fullTitle();
       const result: SkippedTestResult = {
@@ -155,7 +155,7 @@ export class StrykerMochaReporter {
         fileName: test.file,
       };
       this.tests.push(result);
-      // StrykerMochaReporter.liveReporter?.reportTestResult(result);
+      StrykerMochaReporter.liveReporter?.reportTestResult(result);
       this.skippedCount++;
     });
 

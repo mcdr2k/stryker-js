@@ -1,7 +1,5 @@
 import * as fs from 'fs';
 
-import { MemoryMeasurement } from 'vm';
-
 import { MutantResult, PartialStrykerOptions } from '@stryker-mutator/api/core';
 import { createInjector } from 'typed-inject';
 import { commonTokens } from '@stryker-mutator/api/plugin';
