@@ -202,6 +202,8 @@ export function testRunner(index = 0): sinon.SinonStubbedInstance<Required<TestR
     mutantRun: sinon.stub(),
     simultaneousMutantRun: sinon.stub(),
     formulateEarlyResults: sinon.stub(),
+    strykerLiveMutantRun: sinon.stub(),
+    liveMutantRun: sinon.stub(),
     dispose: sinon.stub(),
   };
 }

@@ -2,6 +2,7 @@
   "$schema": "./packages/core/schema/stryker-schema.json",
   "coverageAnalysis": "perTest",
   "testRunner": "mocha",
+  "measureMetrics": false,
   "disableSimultaneousTesting": false,
   "disableBail": false,
   "fileLogLevel": "trace",
@@ -16,7 +17,7 @@
     "../typescript-checker/dist/src/index.js"
   ],
   "ignoreStatic": true,
-  "checkers": ["typescript"],
+  "checkers": [],
   "dashboard": {},
   "buildCommand": "tsc -b",
   "disableTypeChecks": "{test,src,lib}/**/*.{js,ts,jsx,tsx,html,vue,cts,mts}",

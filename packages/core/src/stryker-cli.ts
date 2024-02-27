@@ -191,6 +191,8 @@ export class StrykerCli {
       .option('--exportMutantsFile <file>')
       .option('--importMutantGroups')
       .option('--importMutantGroupsFile <file>')
+      .option('--measureMetrics')
+      .option('--measureMetricsOutputFile <file>')
       .showSuggestionAfterError()
       .parse(this.argv);
 

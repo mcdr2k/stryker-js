@@ -113,8 +113,9 @@ describe(MutantInstrumenterExecutor.name, () => {
     expect(injectorMock.provideFactory).calledWith(coreTokens.checkerFactory, createCheckerFactory);
   });
 
-  it('should initialize the CheckerPool before creating the sandbox', async () => {
+  it('should initialize the CheckerPool before creating the sandbox if mutating in place', async () => {
     // This is important for in-place mutation. We need to initialize the typescript checker(s) before we write mutated files to disk.
+    testInjector.options.inPlace = true;
     await sut.execute();
     expect(checkerPoolMock.init).calledBefore(injectorMock.provideClass.withArgs(coreTokens.sandbox, Sandbox));
   });

@@ -95,7 +95,8 @@ export class MutantTestPlanner {
         result.push(MutantTestPlanner.planSimultaneousMutant(mutantRunPlans));
       }
       if (count !== mutants.length) {
-        this.logger.error(JSON.stringify(mutants.map((x) => x.mutant.id)));
+        //this.logger.error(JSON.stringify(mutants.map((x) => x.mutant.id)));
+        this.logger.error(`Imported mutant groups are lacking some mutants, expected ${mutants.length} but got ${count}`);
         //throw new Error(`Imported mutant groups are lacking some mutants, expected ${mutants.length} but got ${count}`);
       }
       return result;
@@ -113,7 +114,7 @@ export class MutantTestPlanner {
 
     // static mutants, and mutants with no filter, cannot be grouped (assumption)
     const staticAndNoFilterMutants = mutants.filter(
-      (m) => (m.mutant.static ?? m.mutant.static === undefined) || m.runOptions.testFilter === undefined,
+      (m) => (m.mutant.static ?? m.mutant.static === undefined) || m.runOptions.testFilter === undefined || m.runOptions.testFilter.length === 0,
     );
     const mutantsToGroup = mutants.filter((m) => m.mutant.static === false && m.runOptions.testFilter);
     if (staticAndNoFilterMutants.length + mutantsToGroup.length !== mutants.length) {

@@ -19,9 +19,10 @@ class Measurement {
     this.start = Metrics.now();
   }
 
-  public markEnd() {
+  public markEnd(errorIfAlreadyMarked = true) {
     if (this.end != undefined) {
-      throw new Error('end already marked');
+      if (errorIfAlreadyMarked) throw new Error('end already marked');
+      return;
     }
     this.end = Metrics.now();
   }
@@ -51,27 +52,26 @@ export class CheckerAndTestRunnerPoolMetrics {
     return measurement;
   }
 
+  public static getData(): CheckerAndTestRunnerPoolMeasurement[] {
+    return this.timedResources;
+  }
+
   public static exportData(): string {
     return JSON.stringify(CheckerAndTestRunnerPoolMetrics.timedResources, null, 2);
   }
 }
 
 export class CheckerAndTestRunnerPoolMeasurement extends Measurement {
-  private readonly type: string;
-
-  constructor(type: string) {
+  constructor(private readonly type: string) {
     super();
-    this.type = type;
   }
 }
 
 export class MeasuredTestSession extends Measurement {
-  public readonly type: SessionType;
   private testRunBeginMs: number | undefined = undefined;
 
-  constructor(type: SessionType) {
+  constructor(public readonly type: SessionType) {
     super();
-    this.type = type;
   }
 
   public setTestRunBeginMs(testRunBeginMs: number): void {
@@ -97,6 +97,33 @@ export enum SessionType {
   Reset = 'reset',
 }
 
+export class ArbitraryMetrics {
+  private static readonly data = new Map<string, MeasuredFunction>();
+
+  public static getData(): Map<string, MeasuredFunction> {
+    return this.data;
+  }
+
+  public static measure(firstQualifiedName: string, ...specification: string[]): Measurement {
+    const qualifiedName = Metrics.createQualifiedName(firstQualifiedName, specification);
+    const measurement = new MeasuredFunction(qualifiedName);
+    ArbitraryMetrics.data.set(qualifiedName, measurement);
+    return measurement;
+  }
+}
+
+export function getCombinedMetricsData(): {
+  mutantData: Array<[string, Metrics]>;
+  poolData: CheckerAndTestRunnerPoolMeasurement[];
+  arbitraryData: Array<[string, MeasuredFunction]>;
+} {
+  return {
+    mutantData: Array.from(Metrics.getData().entries()),
+    poolData: CheckerAndTestRunnerPoolMetrics.getData(),
+    arbitraryData: Array.from(ArbitraryMetrics.getData().entries()),
+  };
+}
+
 export class Metrics {
   private static readonly data = new Map<string, Metrics>();
 
@@ -105,7 +132,6 @@ export class Metrics {
   private readonly testSessions: MeasuredTestSession[] = [];
   private readonly functionCalls: MeasuredFunction[] = [];
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor(activeMutant: string) {
     this.identifier = activeMutant;
   }
@@ -181,7 +207,7 @@ export class Metrics {
     }
   }
 
-  private static createQualifiedName(firstQualifiedName: string, specification: string[] = []): string {
+  public static createQualifiedName(firstQualifiedName: string, specification: string[] = []): string {
     if (specification.length === 0) return firstQualifiedName;
     return firstQualifiedName + '#' + specification.join('#');
   }

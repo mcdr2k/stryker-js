@@ -101,9 +101,11 @@ describe(OptionsValidator.name, () => {
         disableSimultaneousTesting: true,
         ignorers: [],
         exportMutantsOnly: false,
-        exportMutantsFile: 'generated-mutants.txt',
+        exportMutantsFile: 'reports/generated-mutants.json',
         importMutantGroups: false,
-        importMutantGroupsFile: 'grouped-mutants.txt',
+        importMutantGroupsFile: 'reports/grouped-mutants.json',
+        measureMetrics: false,
+        measureMetricsOutputFile: 'reports/metrics.json',
       };
       expect(options).deep.eq(expectedOptions);
     });

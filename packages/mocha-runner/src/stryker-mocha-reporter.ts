@@ -7,10 +7,13 @@ import {
   MutantRunOptions,
   MutantRunStatus,
   SkippedTestResult,
+  LiveTestRunReporter,
 } from '@stryker-mutator/api/test-runner';
 import { I } from '@stryker-mutator/util';
 
 import { Metrics } from '@stryker-mutator/api/metrics';
+
+import { InstrumenterContextWrapper } from '@stryker-mutator/api/core';
 
 import { Timer } from './timer.js';
 
@@ -45,7 +48,9 @@ export class StrykerMochaReporter {
   public pendingTest: Mocha.Test | undefined;
 
   public static currentInstance: I<StrykerMochaReporter> | undefined;
+  public static liveReporter: LiveTestRunReporter | undefined;
   public static mutantRunOptions: MutantRunOptions[] | undefined;
+  public static instrumenterContext: InstrumenterContextWrapper;
   public static bail = true;
 
   public readonly testTitleToMutantId = new Map<string, string>();
@@ -53,6 +58,11 @@ export class StrykerMochaReporter {
   public testRunBeginMs = 0;
   private isSimultaneousRun = false;
   private done = false;
+
+  public static clearStatic(): void {
+    StrykerMochaReporter.mutantRunOptions = undefined;
+    StrykerMochaReporter.liveReporter = undefined;
+  }
 
   constructor(private readonly runner: NodeJS.EventEmitter) {
     this.initData();
@@ -86,6 +96,7 @@ export class StrykerMochaReporter {
 
   private registerEvents() {
     this.runner.on(EVENT_RUN_BEGIN, () => {
+      StrykerMochaReporter.liveReporter?.testRunStarted(StrykerMochaReporter.instrumenterContext);
       this.done = false;
       this.passedCount = 0;
       this.skippedCount = 0;
@@ -102,20 +113,12 @@ export class StrykerMochaReporter {
       this.runner.on(EVENT_SUITE_BEGIN, (suite: Mocha.Suite) => {
         // it is not possible to 'skip' a test that is already running (EVENT_TEST_BEGIN)
         // so instead we do it from the suite
+        // todo: do note that if a test kills a mutant within this suite, then we cannot 'skip' related tests from this suite anymore
         for (const test of suite.tests) {
-          const mutantId = this.testTitleToMutantId.get(test.fullTitle());
-          if (mutantId) {
-            const mutantStatus = this.mutantIdToStatus.get(mutantId);
-            if (mutantStatus === MutantRunStatus.Killed) {
-              if (StrykerMochaReporter.log?.isTraceEnabled()) {
-                // StrykerMochaReporter.log?.trace(
-                //   `Attempting to skip test '${test.fullTitle()}' for simultaneous mutant '${mutantId}' because it was already killed.`,
-                // );
-                try {
-                  test.skip();
-                } catch (e) {}
-              }
-            }
+          if (StrykerMochaReporter.liveReporter?.shouldSkipTest(test.fullTitle())) {
+            try {
+              test.skip();
+            } catch (e) {}
           }
         }
       });
@@ -128,6 +131,7 @@ export class StrykerMochaReporter {
       this.timer.reset();
       this.pendingTest = test;
       this.pendingCount++;
+      StrykerMochaReporter.liveReporter?.startTest(test.fullTitle());
       if (this.pendingCount > 1) {
         StrykerMochaReporter.log?.fatal(`Multiple tests (${this.pendingCount}) were executed simultaneously, this is a problem!`);
       }
@@ -151,6 +155,7 @@ export class StrykerMochaReporter {
         fileName: test.file,
       };
       this.tests.push(result);
+      // StrykerMochaReporter.liveReporter?.reportTestResult(result);
       this.skippedCount++;
     });
 
@@ -163,6 +168,7 @@ export class StrykerMochaReporter {
         timeSpentMs: this.timer.elapsedMs(),
         fileName: test.file,
       };
+      StrykerMochaReporter.liveReporter?.reportTestResult(result);
       this.tests.push(result);
       this.passedCount++;
     });
@@ -177,6 +183,7 @@ export class StrykerMochaReporter {
         timeSpentMs: this.timer.elapsedMs(),
       };
       this.tests.push(result);
+      StrykerMochaReporter.liveReporter?.reportTestResult(result);
       if (this.isSimultaneousRun) {
         const mutantId = this.testTitleToMutantId.get(test.fullTitle());
         if (mutantId) {
@@ -189,6 +196,7 @@ export class StrykerMochaReporter {
     });
 
     this.runner.on(EVENT_RUN_END, () => {
+      StrykerMochaReporter.liveReporter?.testRunFinished();
       this.done = true;
       StrykerMochaReporter.log?.debug(
         'Mocha test run completed: %s/%s passed (skipped %s)',

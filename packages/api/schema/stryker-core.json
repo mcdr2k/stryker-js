@@ -553,7 +553,7 @@
     "exportMutantsFile": {
       "description": "Target file where the generated mutants should be exported to.",
       "type":"string",
-      "default": "generated-mutants.txt"
+      "default": "reports/generated-mutants.json"
     },
     "importMutantGroups": {
       "description": "Indicates whether the program should import mutant groups from a file. These groups will be used for simultaneous testing.",
@@ -563,7 +563,17 @@
     "importMutantGroupsFile": {
       "description": "File from which mutant groups are imported.",
       "type":"string",
-      "default": "grouped-mutants.txt"
+      "default": "reports/grouped-mutants.json"
+    },
+    "measureMetrics": {
+      "description": "Indicates whether Stryker should measure metrics and write them to a file.",
+      "type":"boolean",
+      "default":false
+    },
+    "measureMetricsOutputFile": {
+      "description": "Target file where the metrics should be exported to.",
+      "type":"string",
+      "default": "reports/metrics.json"
     }
   }
 }

@@ -6,12 +6,28 @@ import log4js from 'log4js';
 import { createInjector } from 'typed-inject';
 import { commonTokens, PluginContext, Injector } from '@stryker-mutator/api/plugin';
 
+import { MutantRunResult, TestResult } from '@stryker-mutator/api/test-runner';
+
 import { LogConfigurator } from '../logging/index.js';
 import { deserialize, serialize } from '../utils/string-utils.js';
 import { coreTokens, provideLogger, PluginCreator } from '../di/index.js';
 import { PluginLoader } from '../di/plugin-loader.js';
 
-import { CallMessage, ParentMessage, ParentMessageKind, WorkerMessage, WorkerMessageKind, InitMessage } from './message-protocol.js';
+import {
+  CallMessage,
+  ParentMessage,
+  ParentMessageKind,
+  WorkerMessage,
+  WorkerMessageKind,
+  InitMessage,
+  StartedTestUpdate,
+  TestUpdateType,
+  FinishedTestUpdate,
+  TestResultTestUpdate,
+  TestUpdateMessage,
+  MutantResultUpdate,
+  TestStartedUpdate,
+} from './message-protocol.js';
 
 export interface ChildProcessContext extends PluginContext {
   [coreTokens.pluginCreator]: PluginCreator;
@@ -34,7 +50,12 @@ export class ChildProcessProxyWorker {
   private send(value: ParentMessage) {
     if (process.send) {
       const str = serialize(value);
-      process.send(str);
+      if (this.log?.isTraceEnabled()) {
+        this.log.trace(`Sending message to parent: ${str}.`);
+      }
+      process.send(str, undefined, { swallowErrors: false }, (error) => {
+        if (error) this.log?.error(`Error sending message: ${JSON.stringify(error)}.`);
+      });
     }
   }
   private handleMessage(serializedMessage: unknown) {
@@ -84,6 +105,7 @@ export class ChildProcessProxyWorker {
       }
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       this.realSubject = injector.injectClass(RealSubjectClass);
+      this.realSubject.parentWorker = this; // todo: verify
       this.send({ kind: ParentMessageKind.Initialized });
     } catch (err) {
       this.send({
@@ -146,13 +168,125 @@ export class ChildProcessProxyWorker {
     process.on('unhandledRejection', (reason, promise) => {
       const unhandledPromiseId = unhandledRejections.push(promise);
       this.log?.debug(`UnhandledPromiseRejectionWarning: Unhandled promise rejection (rejection id: ${unhandledPromiseId}): ${reason}`);
+      // todo: remove
+      if (this.log?.isTraceEnabled()) {
+        this.log?.trace(
+          `UnhandledPromiseRejectionWarning: Unhandled promise rejection (rejection id: ${unhandledPromiseId}): ${JSON.stringify(reason)}`,
+        );
+      }
     });
     process.on('rejectionHandled', (promise) => {
       const unhandledPromiseId = unhandledRejections.indexOf(promise) + 1;
       this.log?.debug(`PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: ${unhandledPromiseId})`);
     });
   }
+
+  private updates = 0;
+  // Stryker disable all
+  public testRunStarted(): void {
+    const update: StartedTestUpdate = {
+      type: TestUpdateType.Started,
+      testRunStartedMs: Date.now(),
+    };
+    const message: TestUpdateMessage = {
+      kind: ParentMessageKind.Custom,
+      update,
+    };
+    (message as any).updates = this.updates++;
+    if (this.log?.isTraceEnabled()) {
+      this.log.trace(`Sending test run started update: ${JSON.stringify(update)}.`);
+    }
+    try {
+      this.send(message);
+    } catch (e) {
+      this.log?.error(`Error occurred in testRunStarted: ${JSON.stringify(e)}`);
+    }
+  }
+
+  public reportTestResult(testResult: TestResult): boolean {
+    const update: TestResultTestUpdate = {
+      type: TestUpdateType.TestResult,
+      testResult,
+    };
+    const message: TestUpdateMessage = {
+      kind: ParentMessageKind.Custom,
+      update,
+    };
+    (message as any).updates = this.updates++;
+    if (this.log?.isTraceEnabled()) {
+      this.log.trace(`Sending test result update: ${JSON.stringify(update)}.`);
+    }
+    try {
+      this.send(message);
+    } catch (e) {
+      this.log?.error(`Error occurred in reportTestResult: ${JSON.stringify(e)}`);
+    }
+    // todo: fix return value
+    return false;
+  }
+
+  public reportMutantResult(mutantId: string, result: MutantRunResult): void {
+    const update: MutantResultUpdate = {
+      type: TestUpdateType.MutantResult,
+      mutantId,
+      mutantResult: result,
+    };
+    const message: TestUpdateMessage = {
+      kind: ParentMessageKind.Custom,
+      update,
+    };
+    (message as any).updates = this.updates++;
+    if (this.log?.isTraceEnabled()) {
+      this.log?.trace(`Sending mutant result update: ${JSON.stringify(update)}`);
+    }
+    try {
+      this.send(message);
+    } catch (e) {
+      this.log?.error(`Error occurred in reportMutantResult: ${JSON.stringify(e)}`);
+    }
+  }
+
+  public startTest(testId: string): void {
+    const update: TestStartedUpdate = {
+      type: TestUpdateType.TestStarted,
+      test: testId,
+    };
+    const message: TestUpdateMessage = {
+      kind: ParentMessageKind.Custom,
+      update,
+    };
+    (message as any).updates = this.updates++;
+    if (this.log?.isTraceEnabled()) {
+      this.log.trace(`Sending pending test update: ${JSON.stringify(update)}.`);
+    }
+    try {
+      this.send(message);
+    } catch (e) {
+      this.log?.error(`Error occurred in startTest: ${JSON.stringify(e)}`);
+    }
+  }
+
+  public testRunFinished(): void {
+    const update: FinishedTestUpdate = {
+      type: TestUpdateType.Finished,
+      testRunFinishedMs: Date.now(),
+    };
+    const message: TestUpdateMessage = {
+      kind: ParentMessageKind.Custom,
+      update,
+    };
+    (message as any).updates = this.updates++;
+    if (this.log?.isTraceEnabled()) {
+      this.log.trace(`Sending test run finished update: ${JSON.stringify(update)}.`);
+    }
+    try {
+      this.send(message);
+    } catch (e) {
+      this.log?.error(`Error occurred in testRunFinished: ${JSON.stringify(e)}`);
+    }
+  }
 }
+// Stryker restore all
 
 // Prevent side effects for merely importing the file
 // Only actually start the child worker when it is requested

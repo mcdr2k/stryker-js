@@ -32,8 +32,6 @@ import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
 import { CheckStatus } from '@stryker-mutator/api/check';
 
-import { CheckerAndTestRunnerPoolMeasurement, CheckerAndTestRunnerPoolMetrics, Metrics } from '@stryker-mutator/api/metrics';
-
 import { coreTokens } from '../di/index.js';
 import { StrictReporter } from '../reporters/strict-reporter.js';
 import { MutationTestReportHelper } from '../reporters/mutation-test-report-helper.js';
@@ -156,12 +154,6 @@ export class MutationTestExecutor {
     await this.mutationTestReportHelper.reportAll(results);
     await this.reporter.wrapUp();
     this.logDone();
-
-    const data = Metrics.getData();
-    if (data.size > 0) {
-      this.log.info(JSON.stringify(data.entries().next(), null, 2));
-    }
-    this.log.info(CheckerAndTestRunnerPoolMetrics.exportData());
     return results;
   }
 
@@ -206,10 +198,10 @@ export class MutationTestExecutor {
         // the mutants in the same order as presented in the mutants input
         this.markMutationTestStart();
         if (this.log.isTraceEnabled()) {
-          this.log.info(`Group ${plan.runOptions.groupId} started (${identifier}).`);
+          this.log.trace(`Group ${plan.runOptions.groupId} started (${identifier}).`);
         }
-        const result = await testRunner.simultaneousMutantRun(plan.runOptions);
-        return [plan, result] as [SimultaneousMutantRunPlan, SimultaneousMutantRunResult];
+        const result = await testRunner.strykerLiveMutantRun!(plan.runOptions);
+        return [plan, result!] as [SimultaneousMutantRunPlan, SimultaneousMutantRunResult];
       })
       .pipe((o) => this.verifyAndRetrySimultaneousResults(o));
   }
@@ -307,11 +299,11 @@ export class MutationTestExecutor {
         if (this.log.isTraceEnabled()) {
           this.log.trace(`Attempting to rerun '${id}.'`);
         }
-        const result = await testRunner.simultaneousMutantRun(plan.runOptions);
+        const result = await testRunner.strykerLiveMutantRun!(plan.runOptions);
         if (this.log.isTraceEnabled()) {
           this.log.trace(`Rerun finished for mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
         }
-        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result);
+        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result!);
       })
       .pipe(mergeAll());
 
@@ -336,11 +328,11 @@ export class MutationTestExecutor {
         if (this.log.isTraceEnabled()) {
           this.log.trace(`Attempting to rerun erroneous result '${id}.'`);
         }
-        const result = await testRunner.simultaneousMutantRun(plan.runOptions);
+        const result = await testRunner.strykerLiveMutantRun!(plan.runOptions);
         if (this.log.isTraceEnabled()) {
           this.log.trace(`Rerun finished for erroneous mutant '${id}, with result: ${JSON.stringify(result, null, 2)}.'`);
         }
-        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result);
+        return this.mutationTestReportHelper.reportSimultaneousMutantRunResult(plan.mutants, result!);
       })
       .pipe(mergeAll());
   }
@@ -449,6 +441,10 @@ export class MutationTestExecutor {
     }
     if (this.options.coverageAnalysis === 'off') {
       this.log.info('Simultaneous testing is not performed because coverage analysis was "off"');
+      return false;
+    }
+    if (this.options.disableBail) {
+      this.log.info('Simultaneous testing is not performed because bail was disabled.');
       return false;
     }
     // todo: not necessarily a bad thing to still use simultaneous testing when there are few mutants

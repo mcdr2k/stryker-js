@@ -30,4 +30,7 @@ export class TestRunnerDecorator extends ResourceDecorator<TestRunner> {
   ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined> {
     return this.innerResource.formulateEarlyResults?.(mutantRunOptions);
   }
+  public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult | undefined> {
+    return this.innerResource.strykerLiveMutantRun?.(options);
+  }
 }

@@ -100,6 +100,39 @@ export class ReloadEnvironmentDecorator extends TestRunnerDecorator {
     return result;
   }
 
+  public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult | undefined> {
+    let newState: TestEnvironmentState;
+    if (options.reloadEnvironment) {
+      newState = TestEnvironmentState.LoadedStaticMutant;
+
+      // If env is still pristine (first run), no reload is actually needed
+      options.reloadEnvironment = this.testEnvironment !== TestEnvironmentState.Pristine;
+
+      if (options.reloadEnvironment && !(await this.testRunnerIsCapableOfReload())) {
+        await this.recover();
+        options.reloadEnvironment = false;
+      }
+    } else {
+      // Reload might still be needed actually, since a static mutant could be loaded
+      newState = TestEnvironmentState.Loaded;
+      if (this.testEnvironment === TestEnvironmentState.LoadedStaticMutant) {
+        // Test env needs reloading
+        if (await this.testRunnerIsCapableOfReload()) {
+          options.reloadEnvironment = true;
+        } else {
+          // loaded a static mutant in previous run, need to reload first
+          await this.recover();
+        }
+      }
+    }
+    const metrics = Metrics.metricsFor(options.groupId);
+    const session = metrics.measureTestSession(this.toTestSessionType(this.testEnvironment, newState));
+    const result = await super.strykerLiveMutantRun(options);
+    session.markEnd();
+    this.testEnvironment = newState;
+    return result;
+  }
+
   private async testRunnerIsCapableOfReload() {
     return (await this.capabilities()).reloadEnvironment;
   }

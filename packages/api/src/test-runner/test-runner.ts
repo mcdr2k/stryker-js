@@ -1,3 +1,5 @@
+import { InstrumenterContextWrapper } from '../core/instrument.js';
+
 import { DryRunOptions, MutantRunOptions, SimultaneousMutantRunOptions, regularToSimultaneousMutantRunOptions } from './run-options.js';
 import { DryRunResult } from './dry-run-result.js';
 import {
@@ -8,6 +10,7 @@ import {
   SimultaneousMutantRunStatus,
 } from './mutant-run-result.js';
 import { TestRunnerCapabilities } from './test-runner-capabilities.js';
+import { TestResult } from './test-result.js';
 
 export interface TestRunner {
   capabilities(): Promise<TestRunnerCapabilities> | TestRunnerCapabilities;
@@ -16,6 +19,8 @@ export interface TestRunner {
   mutantRun(options: MutantRunOptions): Promise<MutantRunResult>;
   simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult>;
   formulateEarlyResults?(mutantRunOptions: MutantRunOptions[]): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined>;
+  strykerLiveMutantRun?(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult | undefined>;
+  liveMutantRun?(options: SimultaneousMutantRunOptions, reporter: LiveTestRunReporter): Promise<void>;
   dispose?(): Promise<void>;
 }
 
@@ -64,10 +69,45 @@ export abstract class SimultaneousTestRunner extends AbstractTestRunner {
     } else {
       const [partialResult] = simultaneousResults.partialResults;
       if (partialResult.status === MutantRunStatus.Pending) {
-        // assume survivor? Or error? This should not ever happen though...]
+        // assume survivor? Or error? This should not ever happen though...
         throw new Error('Cannot work with partial result');
       }
       return partialResult;
     }
   }
+}
+
+export abstract class LiveReporterTestRunner extends AbstractTestRunner {
+  public mutantRun(_options: MutantRunOptions): Promise<MutantRunResult> {
+    throw new Error('Not available');
+  }
+  public simultaneousMutantRun(_options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    throw new Error('Not available');
+  }
+  public abstract liveMutantRun(options: SimultaneousMutantRunOptions, reporter: LiveTestRunReporter): void;
+}
+
+export interface LiveTestRunReporter {
+  /**
+   * Report that the test run started (all setup completed).
+   */
+  testRunStarted(context: InstrumenterContextWrapper): void;
+  /**
+   * Report back the result of a single test.
+   * @returns True if any subsequent tests, that relate to the same mutant from the reported test, may be skipped.
+   * False othwerise.
+   */
+  reportTestResult(testResult: TestResult): void;
+  /**
+   * Report that the test run finished completely (all tests executed accordingly).
+   */
+  testRunFinished(): void;
+  /**
+   * Indicates whether some test should be skipped, based on the results reported so far.
+   * @param testId The id of the test to possibly skip.
+   * @returns True if the test should be skipped, false otherwise.
+   */
+  shouldSkipTest(testId: string): boolean;
+
+  startTest(testId: string): void;
 }

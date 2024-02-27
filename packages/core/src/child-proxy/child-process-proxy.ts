@@ -2,6 +2,8 @@ import childProcess from 'child_process';
 import os from 'os';
 import { fileURLToPath, URL } from 'url';
 
+import { EventEmitter } from 'events';
+
 import { FileDescriptions, StrykerOptions } from '@stryker-mutator/api/core';
 import { isErrnoException, Task, ExpirableTask, StrykerError } from '@stryker-mutator/util';
 import log4js from 'log4js';
@@ -13,7 +15,7 @@ import { StringBuilder } from '../utils/string-builder.js';
 import { deserialize, padLeft, serialize } from '../utils/string-utils.js';
 
 import { ChildProcessCrashedError } from './child-process-crashed-error.js';
-import { InitMessage, ParentMessage, ParentMessageKind, WorkerMessage, WorkerMessageKind } from './message-protocol.js';
+import { CustomMessage, InitMessage, ParentMessage, ParentMessageKind, WorkerMessage, WorkerMessageKind } from './message-protocol.js';
 import { OutOfMemoryError } from './out-of-memory-error.js';
 import { ChildProcessContext } from './child-process-proxy-worker.js';
 import { IdGenerator } from './id-generator.js';
@@ -30,7 +32,15 @@ const BROKEN_PIPE_ERROR_CODE = 'EPIPE';
 const IPC_CHANNEL_CLOSED_ERROR_CODE = 'ERR_IPC_CHANNEL_CLOSED';
 const TIMEOUT_FOR_DISPOSE = 2000;
 
-export class ChildProcessProxy<T> implements Disposable {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export declare interface ChildProcessProxy<T> {
+  on(event: 'custom-message', listener: (message: CustomMessage) => void): this;
+  emit(eventName: string | symbol, ...args: any[]): boolean;
+  //on(event: string, listener: (obj: any) => void): this;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unsafe-declaration-merging
+export class ChildProcessProxy<T> extends EventEmitter implements Disposable {
   public readonly proxy: Promisified<T>;
 
   private readonly worker: childProcess.ChildProcess;
@@ -55,6 +65,7 @@ export class ChildProcessProxy<T> implements Disposable {
     execArgv: string[],
     idGenerator: IdGenerator,
   ) {
+    super();
     const workerId = idGenerator.next().toString();
     this.worker = childProcess.fork(fileURLToPath(new URL('./child-process-proxy-worker.js', import.meta.url)), {
       silent: true,
@@ -162,6 +173,9 @@ export class ChildProcessProxy<T> implements Disposable {
   private listenForMessages() {
     this.worker.on('message', (serializedMessage: string) => {
       const message = deserialize<ParentMessage>(serializedMessage);
+      if (this.log.isTraceEnabled()) {
+        this.log.trace(`Received message: ${JSON.stringify(message)}.`);
+      }
       switch (message.kind) {
         case ParentMessageKind.Ready:
           // Workaround, because of a race condition more prominent in native ESM node modules
@@ -190,6 +204,11 @@ export class ChildProcessProxy<T> implements Disposable {
           this.fatalError = new StrykerError(message.error);
           this.reportError(this.fatalError);
           void this.dispose();
+          break;
+        case ParentMessageKind.Custom:
+          if (!this.emit('custom-message', message)) {
+            this.logDiscardedCustomMessage(message);
+          }
           break;
         default:
           this.logUnidentifiedMessage(message);
@@ -296,6 +315,10 @@ export class ChildProcessProxy<T> implements Disposable {
         await objectUtils.kill(this.worker.pid);
       }
     }
+  }
+
+  private logDiscardedCustomMessage(message: any): void {
+    this.log.warn(`Received message ${JSON.stringify(message)} was discarded because none was listening for it`);
   }
 
   private logUnidentifiedMessage(message: never) {

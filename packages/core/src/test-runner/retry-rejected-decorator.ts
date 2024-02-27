@@ -45,7 +45,7 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
       RetryRejectedDecorator.name,
       this.mutantRun.name,
     );
-    //const result = await this.run(() => super.mutantRun(options));
+
     if (typeof result === 'string') {
       return {
         status: MutantRunStatus.Error,
@@ -56,11 +56,41 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
     }
   }
 
-  private async run<T extends DryRunResult | MutantRunResult>(
-    actRun: () => Promise<T>,
-    attemptsLeft = MAX_RETRIES,
-    lastError?: unknown,
-  ): Promise<T | string> {
+  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+    const result = await Metrics.metricsFor(options.groupId).timeAwaitedFunction(
+      () => this.run(() => super.simultaneousMutantRun(options)),
+      RetryRejectedDecorator.name,
+      this.simultaneousMutantRun.name,
+    );
+
+    if (typeof result === 'string') {
+      return {
+        status: SimultaneousMutantRunStatus.Error,
+        errorMessage: result,
+      };
+    } else {
+      return result;
+    }
+  }
+
+  public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult | undefined> {
+    const result = await Metrics.metricsFor(options.groupId).timeAwaitedFunction(
+      () => this.run(() => super.strykerLiveMutantRun(options)),
+      RetryRejectedDecorator.name,
+      this.strykerLiveMutantRun.name,
+    );
+
+    if (typeof result === 'string') {
+      return {
+        status: SimultaneousMutantRunStatus.Error,
+        errorMessage: result,
+      };
+    } else {
+      return result;
+    }
+  }
+
+  private async run<T>(actRun: () => Promise<T>, attemptsLeft = MAX_RETRIES, lastError?: unknown): Promise<T | string> {
     if (attemptsLeft > 0) {
       try {
         return await actRun();
@@ -77,48 +107,6 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
     } else {
       await this.recover();
       return `${ERROR_MESSAGE}${errorToString(lastError)}`;
-    }
-  }
-
-  private async simRun(
-    options: SimultaneousMutantRunOptions,
-    attemptsLeft = MAX_RETRIES,
-    lastError?: unknown,
-  ): Promise<SimultaneousMutantRunResult | string> {
-    if (attemptsLeft > 0) {
-      try {
-        return await super.simultaneousMutantRun(options);
-      } catch (error) {
-        if (error instanceof OutOfMemoryError) {
-          this.log.info(
-            "Test runner process [%s] ran out of memory. You probably have a memory leak in your tests. Don't worry, Stryker will restart the process, but you might want to investigate this later, because this decreases performance.",
-            error.pid,
-          );
-        }
-        await this.recover();
-        return this.simRun(options, attemptsLeft - 1, error);
-      }
-    } else {
-      await this.recover();
-      return `${ERROR_MESSAGE}${errorToString(lastError)}`;
-    }
-  }
-
-  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    const result = await Metrics.metricsFor(options.groupId).timeAwaitedFunction(
-      () => this.simRun(options),
-      RetryRejectedDecorator.name,
-      this.simultaneousMutantRun.name,
-    );
-    //const result = await this.simRun(options);
-
-    if (typeof result === 'string') {
-      return {
-        status: SimultaneousMutantRunStatus.Error,
-        errorMessage: result,
-      };
-    } else {
-      return result;
     }
   }
 }

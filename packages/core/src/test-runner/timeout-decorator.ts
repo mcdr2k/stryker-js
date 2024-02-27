@@ -14,6 +14,8 @@ import { ExpirableTask } from '@stryker-mutator/util';
 
 import { Metrics } from '@stryker-mutator/api/metrics';
 
+import { LiverunTimeoutError } from '../errors.js';
+
 import { TestRunnerDecorator } from './test-runner-decorator.js';
 
 /**
@@ -112,14 +114,31 @@ export class TimeoutDecorator extends TestRunnerDecorator {
     }
   }
 
+  public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult | undefined> {
+    try {
+      return await Metrics.metricsFor(options.groupId).timeAwaitedFunction(
+        () => super.strykerLiveMutantRun(options),
+        TimeoutDecorator.name,
+        this.strykerLiveMutantRun.name,
+      );
+    } catch (e) {
+      await this.handleTimeout(options.groupId);
+      if (e instanceof LiverunTimeoutError) {
+        return e.result;
+      }
+      this.log.error(`Unidentified error occurred in pipe for group ${options.groupId}: ${JSON.stringify(e)}.`);
+      throw e;
+    }
+  }
+
   private async handleTimeout(id: string | undefined): Promise<void> {
-    this.log.debug('Timeout expired, restarting the process and reporting timeout');
+    this.log.debug(`Timeout expired (${id}), restarting the process and reporting timeout`);
     await this.measuredRecovery(id);
   }
 
   private measuredRecovery(id: string | undefined): Promise<void> {
     if (id) {
-      return Metrics.metricsFor(id).timeAwaitedFunction(() => this.recover(), TimeoutDecorator.name, this.handleTimeout.name);
+      return Metrics.metricsFor(id).timeAwaitedFunction(() => this.recover(), TimeoutDecorator.name, this.measuredRecovery.name);
     } else {
       return this.recover();
     }
