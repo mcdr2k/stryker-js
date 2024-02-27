@@ -1,10 +1,12 @@
 import * as fs from 'fs';
 
+import { MemoryMeasurement } from 'vm';
+
 import { MutantResult, PartialStrykerOptions } from '@stryker-mutator/api/core';
 import { createInjector } from 'typed-inject';
 import { commonTokens } from '@stryker-mutator/api/plugin';
 
-import { ArbitraryMetrics, getCombinedMetricsData } from '@stryker-mutator/api/metrics';
+import { ArbitraryMetrics, Measurement, Metrics, getCombinedMetricsData } from '@stryker-mutator/api/metrics';
 
 import { LogConfigurator } from './logging/index.js';
 import { PrepareExecutor, MutantInstrumenterExecutor, DryRunExecutor, MutationTestExecutor } from './process/index.js';
@@ -29,13 +31,17 @@ export class Stryker {
   public async runMutationTest(): Promise<MutantResult[]> {
     const rootInjector = this.injectorFactory();
     const loggerProvider = provideLogger(rootInjector);
-
-    let measurement = ArbitraryMetrics.measure(Stryker.name, 'prepare');
+    let measurement: Measurement | undefined = undefined;
     try {
+      // cannot measure before setting the proper options
+      //measurement = ArbitraryMetrics.measure(Stryker.name, 'prepare');
       // 1. Prepare. Load Stryker configuration, load the input files and starts the logging server
       const prepareExecutor = loggerProvider.injectClass(PrepareExecutor);
       const mutantInstrumenterInjector = await prepareExecutor.execute(this.cliOptions);
-      measurement.markEnd();
+      //measurement.markEnd();
+
+      const options = mutantInstrumenterInjector.resolve(commonTokens.options);
+      Metrics.measureMetrics = options.measureMetrics;
 
       try {
         // 2. Mutate and instrument the files and write to the sandbox.
@@ -56,7 +62,6 @@ export class Stryker {
         const mutantResults = await mutationRunExecutor.execute();
         measurement.markEnd();
 
-        const options = mutantInstrumenterInjector.resolve(commonTokens.options);
         if (options.measureMetrics) {
           const fullData = getCombinedMetricsData();
           fs.writeFileSync(options.measureMetricsOutputFile, JSON.stringify(fullData, null, 2), 'utf8');
@@ -64,7 +69,7 @@ export class Stryker {
 
         return mutantResults;
       } catch (error) {
-        measurement.markEnd(false);
+        measurement?.markEnd(false);
         if (mutantInstrumenterInjector.resolve(commonTokens.options).cleanTempDir !== 'always') {
           const log = loggerProvider.resolve(commonTokens.getLogger)(Stryker.name);
           log.debug('Not removing the temp dir because an error occurred');

@@ -10,7 +10,7 @@
  */
 // Stryker disable all
 
-class Measurement {
+export class Measurement {
   private readonly start: number;
   private end: number | undefined = undefined;
   public stack?: string;
@@ -19,7 +19,7 @@ class Measurement {
     this.start = Metrics.now();
   }
 
-  public markEnd(errorIfAlreadyMarked = true) {
+  public markEnd(errorIfAlreadyMarked = true): void {
     if (this.end != undefined) {
       if (errorIfAlreadyMarked) throw new Error('end already marked');
       return;
@@ -27,15 +27,15 @@ class Measurement {
     this.end = Metrics.now();
   }
 
-  public getStart() {
+  public getStart(): number {
     return this.start;
   }
 
-  public getEnd() {
+  public getEnd(): number | undefined {
     return this.end;
   }
 
-  public getElapsedMs() {
+  public getElapsedMs(): number {
     if (this.end == undefined) {
       throw new Error('end not marked');
     }
@@ -107,7 +107,7 @@ export class ArbitraryMetrics {
   public static measure(firstQualifiedName: string, ...specification: string[]): Measurement {
     const qualifiedName = Metrics.createQualifiedName(firstQualifiedName, specification);
     const measurement = new MeasuredFunction(qualifiedName);
-    ArbitraryMetrics.data.set(qualifiedName, measurement);
+    if (Metrics.measureMetrics) ArbitraryMetrics.data.set(qualifiedName, measurement);
     return measurement;
   }
 }
@@ -125,6 +125,7 @@ export function getCombinedMetricsData(): {
 }
 
 export class Metrics {
+  public static measureMetrics = false;
   private static readonly data = new Map<string, Metrics>();
 
   public readonly identifier: string;
@@ -137,6 +138,8 @@ export class Metrics {
   }
 
   public static metricsFor(activeMutant: string): Metrics {
+    if (!Metrics.measureMetrics) return new Metrics(activeMutant);
+
     if (Metrics.data.has(activeMutant)) {
       return Metrics.data.get(activeMutant)!;
     }
@@ -164,7 +167,10 @@ export class Metrics {
   }
 
   public getRunningTestSession(): MeasuredTestSession {
-    if (this.testSessions.length === 0) throw new Error('Cannot get test session, none were started yet.');
+    if (this.testSessions.length === 0) {
+      if (Metrics.measureMetrics) throw new Error('Cannot get test session, none were started yet.');
+      return new MeasuredTestSession(SessionType.Reset);
+    }
     return this.testSessions[this.testSessions.length - 1];
   }
 
@@ -178,6 +184,8 @@ export class Metrics {
    * @returns The function's result
    */
   public timeFunction<T>(func: () => T, firstQualifiedName: string, ...specification: string[]): T {
+    if (!Metrics.measureMetrics) return func();
+
     const measurement = new MeasuredFunction(Metrics.createQualifiedName(firstQualifiedName, specification));
     // measurement.stack = new Error().stack;
     this.functionCalls.push(measurement);
@@ -196,6 +204,8 @@ export class Metrics {
    * @returns The funcion's result
    */
   public async timeAwaitedFunction<T>(func: () => Promise<T>, firstQualifiedName: string, ...specification: string[]): Promise<T> {
+    if (!Metrics.measureMetrics) return await func();
+
     const measurement = new MeasuredFunction(Metrics.createQualifiedName(firstQualifiedName, specification));
     // measurement.stack = new Error().stack;
     this.functionCalls.push(measurement);
