@@ -2,11 +2,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { errorToString } from '@stryker-mutator/util';
-import log4js from 'log4js';
 import { createInjector } from 'typed-inject';
 import { commonTokens, PluginContext, Injector } from '@stryker-mutator/api/plugin';
 
 import { MutantRunResult, TestResult, TestStatus } from '@stryker-mutator/api/test-runner';
+
+import log4js from 'log4js';
 
 import { LogConfigurator } from '../logging/index.js';
 import { deserialize, serialize } from '../utils/string-utils.js';
@@ -20,9 +21,9 @@ import {
   WorkerMessage,
   WorkerMessageKind,
   InitMessage,
-  StartedTestUpdate,
+  TestRunStartedUpdate,
   TestUpdateType,
-  FinishedTestUpdate,
+  TestRunFinishedUpdate,
   TestResultTestUpdate,
   TestUpdateMessage,
   MutantResultUpdate,
@@ -90,6 +91,7 @@ export class ChildProcessProxyWorker {
       const pluginInjector = provideLogger(this.injectorFactory())
         .provideValue(commonTokens.options, message.options)
         .provideValue(commonTokens.fileDescriptions, message.fileDescriptions);
+
       const pluginLoader = pluginInjector.injectClass(PluginLoader);
       const { pluginsByKind } = await pluginLoader.load(message.pluginModulePaths);
       const injector: Injector<ChildProcessContext> = pluginInjector
@@ -184,7 +186,7 @@ export class ChildProcessProxyWorker {
   private updates = 0;
   // Stryker disable all
   public testRunStarted(): void {
-    const update: StartedTestUpdate = {
+    const update: TestRunStartedUpdate = {
       type: TestUpdateType.Started,
       testRunStartedMs: Date.now(),
     };
@@ -267,7 +269,7 @@ export class ChildProcessProxyWorker {
   }
 
   public testRunFinished(): void {
-    const update: FinishedTestUpdate = {
+    const update: TestRunFinishedUpdate = {
       type: TestUpdateType.Finished,
       testRunFinishedMs: Date.now(),
     };

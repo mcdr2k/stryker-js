@@ -95,8 +95,8 @@ export class ChildProcessTestRunnerWorker implements TestRunner {
   }
 
   public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<undefined> {
-    // better to not await this call such that the proxies get a quick response
-    void this.underlyingTestRunner.liveMutantRun!(options, new ChildProcessLiveTestReporter(options, this.parentWorker!));
+    // todo: originally we did not await this call, but it came to mind that we then also lose any errors that are thrown
+    await this.underlyingTestRunner.liveMutantRun!(options, new ChildProcessLiveTestReporter(options, this.parentWorker!));
     return undefined;
   }
 }
@@ -118,6 +118,7 @@ class ChildProcessLiveTestReporter implements LiveTestRunReporter {
     //this.isSimultaneousRun = options.mutantRunOptions.length > 1;
     for (const mutant of options.mutantRunOptions) {
       // assume testFilter exists, if it did not then this is an invalid simultaneous mutant anyway
+      // todo: currently crashes when testFilter is undefined due to static mutants
       mutant.testFilter!.map((t) => {
         if (this.testTitleToMutantId.get(mutant.activeMutant.id))
           this.log.error(`Test '${t}' is already assigned to mutant '${mutant.activeMutant.id}'`);

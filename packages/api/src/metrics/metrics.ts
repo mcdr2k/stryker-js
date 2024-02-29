@@ -1,74 +1,79 @@
-/**
- * Metrics:
- *
- * Measure individual duration of mutant
- * Measure total duration of mutant group
- *
- * Measure duration of test sessions. In particular, measure the amount of time required to start a test session.
- * The duration of creating a test session is measured such that the start timestamp is on the first call to simultaneousTesting
- * and the end timestamp is right before the first test is run.
- */
 // Stryker disable all
 
-export class Measurement {
-  private readonly start: number;
-  private end: number | undefined = undefined;
+export interface Measurement {
+  readonly start: number;
+  readonly end: number | undefined;
+  readonly elapsedMs: number;
+  markEnd(errorIfAlreadyMarked?: boolean): void;
+}
+
+class RealMeasurement implements Measurement {
+  private readonly _start: number;
+  private _end: number | undefined = undefined;
   public stack?: string;
 
   constructor() {
-    this.start = Metrics.now();
+    this._start = Metrics.now();
   }
 
   public markEnd(errorIfAlreadyMarked = true): void {
-    if (this.end != undefined) {
+    if (this._end != undefined) {
       if (errorIfAlreadyMarked) throw new Error('end already marked');
       return;
     }
-    this.end = Metrics.now();
+    this._end = Metrics.now();
   }
 
-  public getStart(): number {
-    return this.start;
+  public get start(): number {
+    return this._start;
   }
 
-  public getEnd(): number | undefined {
-    return this.end;
+  public get end(): number | undefined {
+    return this._end;
   }
 
-  public getElapsedMs(): number {
-    if (this.end == undefined) {
+  public get elapsedMs(): number {
+    if (this._end == undefined) {
       throw new Error('end not marked');
     }
-    return this.end - this.start;
+    return this._end - this.start;
   }
 }
 
-export class CheckerAndTestRunnerPoolMetrics {
-  private static readonly timedResources: CheckerAndTestRunnerPoolMeasurement[] = [];
-
-  public static timeResource(type: string): Measurement {
-    const measurement = new CheckerAndTestRunnerPoolMeasurement(type);
-    this.timedResources.push(measurement);
-    return measurement;
-  }
-
-  public static getData(): CheckerAndTestRunnerPoolMeasurement[] {
-    return this.timedResources;
-  }
-
-  public static exportData(): string {
-    return JSON.stringify(CheckerAndTestRunnerPoolMetrics.timedResources, null, 2);
-  }
+class DummyMeasurement implements Measurement {
+  public readonly start = 0;
+  public readonly end = 0;
+  public readonly elapsedMs = 0;
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  public markEnd(_errorIfAlreadyMarked?: boolean): void {}
 }
 
-export class CheckerAndTestRunnerPoolMeasurement extends Measurement {
-  constructor(private readonly type: string) {
+export interface FunctionMeasurement extends Measurement {
+  readonly functionIdentifier: string;
+}
+
+class DummyFunctionMeasurement extends DummyMeasurement {
+  constructor(public readonly functionIdentifier = '__DUMMY__') {
     super();
   }
 }
 
-export class MeasuredTestSession extends Measurement {
+class RealFunctionMeasurement extends RealMeasurement implements FunctionMeasurement {
+  constructor(public readonly functionIdentifier: string) {
+    super();
+  }
+}
+
+export interface MeasuredTestSession extends Measurement {
+  setTestRunBeginMs(testRunBeginMs: number): void;
+  setStartFormulateResult(startFormulateResult: number): void;
+  setEndFormulateResult(endFormulateResult: number): void;
+}
+
+class RealMeasuredTestSession extends RealMeasurement implements MeasuredTestSession {
   private testRunBeginMs: number | undefined = undefined;
+  private startFormulateResult: number | undefined = undefined;
+  private endFormulateResult: number | undefined = undefined;
 
   constructor(public readonly type: SessionType) {
     super();
@@ -80,15 +85,35 @@ export class MeasuredTestSession extends Measurement {
     }
     this.testRunBeginMs = testRunBeginMs;
   }
+
+  public setStartFormulateResult(startFormulateResult: number): void {
+    if (this.startFormulateResult != undefined) {
+      throw new Error('Cannot set startFormulateResult because it was already set.');
+    }
+    this.startFormulateResult = startFormulateResult;
+  }
+
+  public setEndFormulateResult(endFormulateResult: number): void {
+    if (this.endFormulateResult != undefined) {
+      throw new Error('Cannot set endFormulateResult because it was already set.');
+    }
+    this.endFormulateResult = endFormulateResult;
+  }
 }
 
-class MeasuredFunction extends Measurement {
-  public readonly functionName;
+class DummyMeasuredTestSession extends DummyMeasurement implements MeasuredTestSession {
+  private readonly testRunBeginMs: number | undefined = undefined;
 
-  constructor(functionName: string) {
+  constructor(public readonly type = SessionType.Reset) {
     super();
-    this.functionName = functionName;
   }
+
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  public setTestRunBeginMs(_testRunBeginMs: number): void {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  public setStartFormulateResult(startFormulateResult: number): void {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  public setEndFormulateResult(endFormulateResult: number): void {}
 }
 
 export enum SessionType {
@@ -97,79 +122,56 @@ export enum SessionType {
   Reset = 'reset',
 }
 
-export class ArbitraryMetrics {
-  private static readonly data = new Map<string, MeasuredFunction>();
+export interface MutantMetrics {
+  measureTestSession(type: SessionType): MeasuredTestSession;
+  getRunningTestSession(): MeasuredTestSession;
+  getFunctionCallCount(): number;
+  timeFunction<T>(func: () => T, firstQualifiedName: string, ...specification: string[]): T;
+  timeAwaitedFunction<T>(func: () => Promise<T>, firstQualifiedName: string, ...specification: string[]): Promise<T>;
+}
 
-  public static getData(): Map<string, MeasuredFunction> {
-    return this.data;
+class DummyMutantMetrics implements MutantMetrics {
+  public readonly identifier = '__DUMMY__';
+
+  public measureTestSession(_type: SessionType): DummyMeasuredTestSession {
+    return DummyMetrics.testSession;
   }
 
-  public static measure(firstQualifiedName: string, ...specification: string[]): Measurement {
-    const qualifiedName = Metrics.createQualifiedName(firstQualifiedName, specification);
-    const measurement = new MeasuredFunction(qualifiedName);
-    if (Metrics.measureMetrics) ArbitraryMetrics.data.set(qualifiedName, measurement);
-    return measurement;
+  public getRunningTestSession(): DummyMeasuredTestSession {
+    return DummyMetrics.testSession;
+  }
+
+  public getFunctionCallCount(): number {
+    return 0;
+  }
+
+  public timeFunction<T>(func: () => T, _firstQualifiedName: string, ..._specification: string[]): T {
+    return func();
+  }
+
+  public timeAwaitedFunction<T>(func: () => Promise<T>, _firstQualifiedName: string, ..._specification: string[]): Promise<T> {
+    return func();
   }
 }
 
-export function getCombinedMetricsData(): {
-  mutantData: Array<[string, Metrics]>;
-  poolData: CheckerAndTestRunnerPoolMeasurement[];
-  arbitraryData: Array<[string, MeasuredFunction]>;
-} {
-  return {
-    mutantData: Array.from(Metrics.getData().entries()),
-    poolData: CheckerAndTestRunnerPoolMetrics.getData(),
-    arbitraryData: Array.from(ArbitraryMetrics.getData().entries()),
-  };
-}
+class RealMutantMetrics implements MutantMetrics {
+  public readonly identifier;
+  private readonly testSessions: RealMeasuredTestSession[] = [];
+  private readonly functionCalls: RealFunctionMeasurement[] = [];
 
-export class Metrics {
-  public static measureMetrics = false;
-  private static readonly data = new Map<string, Metrics>();
-
-  public readonly identifier: string;
-  //private readonly timer = new Timer();
-  private readonly testSessions: MeasuredTestSession[] = [];
-  private readonly functionCalls: MeasuredFunction[] = [];
-
-  private constructor(activeMutant: string) {
+  constructor(activeMutant: string) {
     this.identifier = activeMutant;
   }
 
-  public static metricsFor(activeMutant: string): Metrics {
-    if (!Metrics.measureMetrics) return new Metrics(activeMutant);
-
-    if (Metrics.data.has(activeMutant)) {
-      return Metrics.data.get(activeMutant)!;
-    }
-    const metrics = new Metrics(activeMutant);
-    Metrics.data.set(activeMutant, metrics);
-    return metrics;
-  }
-
-  public static exportData(data: Map<string, Metrics> = Metrics.data): string {
-    return JSON.stringify(Array.from(data.entries()), null, 2);
-  }
-
-  public static getData(): Map<string, Metrics> {
-    return Metrics.data;
-  }
-
-  public static now(): number {
-    return Date.now();
-  }
-
-  public measureTestSession(type: SessionType): MeasuredTestSession {
-    const session = new MeasuredTestSession(type);
+  public measureTestSession(type: SessionType): RealMeasuredTestSession {
+    const session = new RealMeasuredTestSession(type);
     this.testSessions.push(session);
     return session;
   }
 
-  public getRunningTestSession(): MeasuredTestSession {
+  public getRunningTestSession(): RealMeasuredTestSession {
     if (this.testSessions.length === 0) {
-      if (Metrics.measureMetrics) throw new Error('Cannot get test session, none were started yet.');
-      return new MeasuredTestSession(SessionType.Reset);
+      throw new Error('Cannot get test session, none were started yet.');
     }
     return this.testSessions[this.testSessions.length - 1];
   }
@@ -184,14 +186,11 @@ export class Metrics {
    * @returns The function's result
    */
   public timeFunction<T>(func: () => T, firstQualifiedName: string, ...specification: string[]): T {
-    if (!Metrics.measureMetrics) return func();
-
-    const measurement = new MeasuredFunction(Metrics.createQualifiedName(firstQualifiedName, specification));
+    const measurement = new RealFunctionMeasurement(Metrics.createQualifiedName(firstQualifiedName, specification));
     // measurement.stack = new Error().stack;
     this.functionCalls.push(measurement);
     try {
-      const result = func();
-      return result;
+      return func();
     } finally {
       measurement.markEnd();
     }
@@ -204,17 +203,103 @@ export class Metrics {
    * @returns The funcion's result
    */
   public async timeAwaitedFunction<T>(func: () => Promise<T>, firstQualifiedName: string, ...specification: string[]): Promise<T> {
-    if (!Metrics.measureMetrics) return await func();
-
-    const measurement = new MeasuredFunction(Metrics.createQualifiedName(firstQualifiedName, specification));
+    const measurement = new RealFunctionMeasurement(Metrics.createQualifiedName(firstQualifiedName, specification));
     // measurement.stack = new Error().stack;
     this.functionCalls.push(measurement);
     try {
-      const result = await func();
-      return result;
+      return await func();
     } finally {
       measurement.markEnd();
     }
+  }
+}
+
+class DummyMetrics {
+  public static readonly mutantMetrics: MutantMetrics = new DummyMutantMetrics();
+  public static readonly measurement = new DummyMeasurement();
+  public static readonly functionMeasurement = new DummyFunctionMeasurement();
+  public static readonly testSession = new DummyMeasuredTestSession();
+}
+
+export class Metrics {
+  private static _measureMetrics = true;
+  private static mutantData = new Map<string, RealMutantMetrics>();
+  private static labelledData = new Map<string, Measurement[]>();
+  private static functionData: FunctionMeasurement[] = [];
+
+  public static metricsFor(activeMutant: string): MutantMetrics {
+    if (!Metrics.measureMetrics) return DummyMetrics.mutantMetrics;
+
+    if (this.mutantData.has(activeMutant)) {
+      return this.mutantData.get(activeMutant)!;
+    }
+    const metrics = new RealMutantMetrics(activeMutant);
+    this.mutantData.set(activeMutant, metrics);
+    return metrics;
+  }
+
+  public static label(label: string): Measurement {
+    if (!Metrics.measureMetrics) return DummyMetrics.measurement;
+
+    const measurement = new RealMeasurement();
+    const data = this.labelledData.get(label) ?? [];
+    this.labelledData.set(label, data);
+    data.push(measurement);
+    return measurement;
+  }
+
+  public static measureFunction(firstQualifiedName: string, ...specification: string[]): FunctionMeasurement {
+    if (!Metrics.measureMetrics) return DummyMetrics.functionMeasurement;
+
+    const qualifiedName = Metrics.createQualifiedName(firstQualifiedName, specification);
+    const measurement = new RealFunctionMeasurement(qualifiedName);
+    this.functionData.push(measurement);
+    return measurement;
+  }
+
+  public static get measureMetrics(): boolean {
+    return this._measureMetrics;
+  }
+
+  public static set measureMetrics(value: boolean) {
+    this._measureMetrics = value;
+    if (!value) this.clear();
+  }
+
+  public static getData(): {
+    mutantData: Map<string, RealMutantMetrics>;
+    labelledData: Map<string, Measurement[]>;
+    functionData: FunctionMeasurement[];
+  } {
+    return {
+      mutantData: this.mutantData,
+      labelledData: this.labelledData,
+      functionData: this.functionData,
+    };
+  }
+
+  public static exportData(data = Metrics.getData()): string {
+    return JSON.stringify(
+      data,
+      (_key, value) => {
+        if (value instanceof Map) {
+          return Array.from(value.entries());
+        } else {
+          return value;
+        }
+      },
+      2,
+    );
+  }
+
+  public static now(): number {
+    return Date.now();
+  }
+
+  public static clear(): void {
+    this.mutantData = new Map();
+    this.labelledData = new Map();
+    this.functionData = [];
   }
 
   public static createQualifiedName(firstQualifiedName: string, specification: string[] = []): string {

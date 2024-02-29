@@ -96,14 +96,14 @@ export interface TestUpdateMessage extends CustomMessage {
   update: TestUpdate;
 }
 
-export type TestUpdate = FinishedTestUpdate | MutantResultUpdate | StartedTestUpdate | TestResultTestUpdate | TestStartedUpdate;
+export type TestUpdate = MutantResultUpdate | TestResultTestUpdate | TestRunFinishedUpdate | TestRunStartedUpdate | TestStartedUpdate;
 
-export interface StartedTestUpdate {
+export interface TestRunStartedUpdate {
   type: TestUpdateType.Started;
   testRunStartedMs: number;
 }
 
-export interface FinishedTestUpdate {
+export interface TestRunFinishedUpdate {
   type: TestUpdateType.Finished;
   testRunFinishedMs: number;
 }
@@ -122,6 +122,10 @@ export interface MutantResultUpdate {
 export interface TestStartedUpdate {
   type: TestUpdateType.TestStarted;
   test: string;
+}
+
+export function isTestRunStartedUpdate(update: TestUpdate): update is TestRunStartedUpdate {
+  return update.type === TestUpdateType.Started;
 }
 
 export function isTestResultUpdate(update: TestUpdate): update is TestResultTestUpdate {

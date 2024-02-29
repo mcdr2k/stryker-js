@@ -27,6 +27,8 @@ import {
 
 import { Context, RootHookObject, Suite } from 'mocha';
 
+import { Metrics } from '@stryker-mutator/api/metrics';
+
 import { StrykerMochaReporter } from './stryker-mocha-reporter.js';
 import { MochaRunnerWithStrykerOptions } from './mocha-runner-with-stryker-options.js';
 import * as pluginTokens from './plugin-tokens.js';
@@ -128,14 +130,17 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     this.instrumenterContext.assignHitCount(activeMutant.id, 0);
 
     if (testFilter) {
-      const metaRegExp = testFilter.map((testId) => `(${escapeRegExp(testId)})`).join('|');
+      const metaRegExp = testFilter.map((testId) => `(^${escapeRegExp(testId)}$)`).join('|');
       const regex = new RegExp(metaRegExp);
       this.mocha.grep(regex);
     } else {
       this.setIfDefined(this.originalGrep, this.mocha.grep);
     }
     const dryRunResult = await this.run(disableBail, activeMutant.id, mutantActivation);
+    const startFormulation = Metrics.now();
     const mutantRunResult = toMutantRunResult(dryRunResult);
+    (mutantRunResult as any).startToMutantRunResult = startFormulation;
+    (mutantRunResult as any).endToMutantRunResult = Metrics.now();
     (mutantRunResult as any).testRunBeginMs = StrykerMochaReporter.currentInstance?.testRunBeginMs;
     return mutantRunResult;
   }
@@ -157,7 +162,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
           throw new Error('Impossible state: a simultaneous mutant before the current one did not define a test filter');
         }
         hasFilter = true;
-        metaRegExps.push(option.testFilter.map((testId) => `(${escapeRegExp(testId)})`).join('|'));
+        metaRegExps.push(option.testFilter.map((testId) => `(^${escapeRegExp(testId)}$)`).join('|'));
       } else if (hasFilter) {
         // if this happens, all tests need to be executed; for now don't accept it at all
         throw new Error('Impossible state: the simultaneous mutants combined do not all define a test filter');
@@ -165,7 +170,8 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     }
 
     if (hasFilter) {
-      this.mocha.grep(new RegExp(metaRegExps.join('|')));
+      const regexs = new RegExp(metaRegExps.join('|'));
+      this.mocha.grep(regexs);
     } else {
       this.setIfDefined(this.originalGrep, this.mocha.grep);
     }
@@ -174,7 +180,12 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     StrykerMochaReporter.bail = !options.disableBail;
     StrykerMochaReporter.liveReporter = reporter;
 
-    return this.liveRun(options.mutantRunOptions.length <= 1 ? options.disableBail : true, options, options.mutantActivation);
+    try {
+      // let's print errors here for now if any occur
+      return await this.liveRun(options.mutantRunOptions.length <= 1 ? options.disableBail : true, options, options.mutantActivation);
+    } catch (e) {
+      this.log.error(`Error during live run: ${JSON.stringify(e, null, 2)}.`);
+    }
   }
 
   private async liveRun(disableBail: boolean, options: SimultaneousMutantRunOptions, mutantActivation: MutantActivation) {
@@ -202,7 +213,6 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     // note: assumes here that this is not a dry run (at least 1 mutant)
     this.instrumenterContext.activeMutants = new Set(options.activeMutantIds);
     await this.runMocha();
-    StrykerMochaReporter.liveReporter = undefined;
 
     function setBail(bail: boolean, suite: Suite) {
       suite.bail(bail);
@@ -226,7 +236,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
           throw new Error('Impossible state: a simultaneous mutant before the current one did not define a test filter');
         }
         hasFilter = true;
-        metaRegExps.push(option.testFilter.map((testId) => `(${escapeRegExp(testId)})`).join('|'));
+        metaRegExps.push(option.testFilter.map((testId) => `(^${escapeRegExp(testId)}$)`).join('|'));
       } else if (hasFilter) {
         // if this happens, all tests need to be executed; for now don't accept it at all
         throw new Error('Impossible state: the simultaneous mutants combined do not all define a test filter');

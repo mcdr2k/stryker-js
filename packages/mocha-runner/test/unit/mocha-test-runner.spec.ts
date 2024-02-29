@@ -335,6 +335,8 @@ describe(MochaTestRunner.name, () => {
       reporterMock.tests = [factory.successTestResult(), factory.failedTestResult({ id: 'foo should be bar', failureMessage: 'foo was baz' })];
       const result = await actMutantRun();
       delete (result as any).testRunBeginMs; //todo: fix this
+      delete (result as any).startToMutantRunResult; //todo: fix this
+      delete (result as any).endToMutantRunResult; //todo: fix this
       const expectedResult: KilledMutantRunResult = {
         failureMessage: 'foo was baz',
         killedBy: ['foo should be bar'],

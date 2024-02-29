@@ -191,7 +191,7 @@ export class StrykerMochaReporter {
         }
       }
       if (StrykerMochaReporter.log?.isTraceEnabled()) {
-        // StrykerMochaReporter.log?.trace(`Test failed: ${test.fullTitle()}. Error: ${err.message}`);
+        StrykerMochaReporter.log?.trace(`Test failed: ${test.fullTitle()}. Error: ${err.message}`);
       }
     });
 

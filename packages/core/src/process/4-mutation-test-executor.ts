@@ -32,6 +32,8 @@ import { Logger } from '@stryker-mutator/api/logging';
 import { I } from '@stryker-mutator/util';
 import { CheckStatus } from '@stryker-mutator/api/check';
 
+import { Metrics } from '@stryker-mutator/api/metrics';
+
 import { coreTokens } from '../di/index.js';
 import { StrictReporter } from '../reporters/strict-reporter.js';
 import { MutationTestReportHelper } from '../reporters/mutation-test-report-helper.js';
@@ -137,7 +139,9 @@ export class MutationTestExecutor {
       return [];
     } else if (this.shouldPerformSimultaneousMutationTesting(this.mutants.length)) {
       const coveredMutantArray = await lastValueFrom(coveredMutant$.pipe(toArray()));
+      const measurePlanner = Metrics.measureFunction(MutationTestExecutor.name, MutantTestPlanner.name, this.planner.makeSimultaneousPlan.name);
       const simultaneousMutantRunPlan = await this.planner.makeSimultaneousPlan(coveredMutantArray, this.dryRunResult.tests.length);
+      measurePlanner.markEnd();
       this.log.info(`Formed groups: ${simultaneousMutantRunPlan.map((x) => x.runOptions.groupId).join(' | ')}.`);
       const simultaneousMutantRunPlan$ = from(simultaneousMutantRunPlan);
       testRunnerResult$ = this.executeSimultaneousRunInTestRunner(simultaneousMutantRunPlan$);

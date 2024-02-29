@@ -31,12 +31,12 @@ import { IdGenerator } from '../child-proxy/id-generator.js';
 
 import {
   CustomMessage,
-  StartedTestUpdate,
   TestUpdate,
   TestUpdateMessage,
   TestUpdateType,
   isMutantResultUpdate,
   isTestResultUpdate,
+  isTestRunStartedUpdate,
   isTestStartedUpdate,
 } from '../child-proxy/message-protocol.js';
 
@@ -108,7 +108,6 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
     const listener = (message: CustomMessage) => {
       const testUpdateMessage = message as TestUpdateMessage;
       if (testUpdateMessage.update) {
-        this.log.trace(`YEET ${options.groupId}: ${JSON.stringify(testUpdateMessage)}.`);
         const testUpdate = testUpdateMessage.update;
         subject.next(testUpdate);
         if (testUpdate.type === TestUpdateType.Finished) {
@@ -118,6 +117,7 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
     };
     try {
       this.worker.on('custom-message', listener);
+      // todo: dumping this return value would also mean we lose the errors that are thrown by this call
       void this.worker.proxy.strykerLiveMutantRun(options);
       // todo: this timeout will come with different behavior.
       // it times out after the provided amount of time when no updates were received.
@@ -146,7 +146,15 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
       if (this.log.isTraceEnabled()) {
         this.log.trace(`Reports for group ${options.groupId} have completed: ${JSON.stringify(reports)}`);
       }
-      const result = this.formulateResult(reports, options, timedOut);
+      const startFormulateResult = Metrics.now();
+      const result = Metrics.metricsFor(options.groupId).timeFunction(
+        () => this.formulateLiveResult(reports, options, timedOut),
+        ChildProcessTestRunnerProxy.name,
+        this.formulateLiveResult.name,
+      );
+      const testSession = Metrics.metricsFor(options.groupId).getRunningTestSession();
+      testSession.setStartFormulateResult(startFormulateResult);
+      testSession.setEndFormulateResult(Metrics.now());
       if (timedOut) {
         throw new LiverunTimeoutError(result, `Group ${options.groupId} timed out.`);
       } else {
@@ -160,10 +168,13 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
     }
   }
 
-  private formulateResult(reports: TestUpdate[], options: SimultaneousMutantRunOptions, timedOut: boolean): SimultaneousMutantRunResult {
-    Metrics.metricsFor(options.groupId)
-      .getRunningTestSession()
-      .setTestRunBeginMs((reports[0] as StartedTestUpdate).testRunStartedMs);
+  private formulateLiveResult(reports: TestUpdate[], options: SimultaneousMutantRunOptions, timedOut: boolean): SimultaneousMutantRunResult {
+    const metrics = Metrics.metricsFor(options.groupId);
+    const startUpdate = reports.find(isTestRunStartedUpdate);
+    if (startUpdate) {
+      metrics.getRunningTestSession().setTestRunBeginMs(startUpdate.testRunStartedMs);
+    }
+
     const completeResults = reports.filter(isMutantResultUpdate);
 
     let timedoutMutantId: string | undefined = undefined;
@@ -178,8 +189,9 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
     }
 
     if (timedOut && lastPendingTest && !lastPendingTestResult && lastTestResult?.testResult.id !== lastPendingTest.test) {
-      timedoutMutantId = options.mutantRunOptions.find((m) => m.testFilter!.find((t) => t === lastPendingTest.test))?.activeMutant.id;
-      this.log.info(`Found timed out mutant ${timedoutMutantId} for group ${options.groupId}.`);
+      // very expensive to look for the culprit test, a whole bunch of string comparisons must be made
+      timedoutMutantId = options.mutantRunOptions.find((m) => m.testFilter?.find((t) => t === lastPendingTest.test))?.activeMutant.id;
+      if (timedoutMutantId) this.log.debug(`Found timed out mutant ${timedoutMutantId} for group ${options.groupId}.`);
     }
 
     //this.log.warn(`Group ${options.groupId} could not finish all mutants, possibly due to a timeout.`);

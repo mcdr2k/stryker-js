@@ -85,6 +85,9 @@ export class MutantTestPlanner {
         const mutantRunPlans: MutantRunPlan[] = [];
         for (const mutantId of group) {
           const mutantRunPlan = mutants.find((m) => m.mutant.id === mutantId);
+          if (groups.length === 1) {
+            this.logger.info(`TestFilter for mutant ${mutantId}: ${JSON.stringify(mutantRunPlan?.runOptions.testFilter)}.`);
+          }
           if (mutantRunPlan) {
             mutantRunPlans.push(mutantRunPlan);
           } else {
@@ -96,7 +99,7 @@ export class MutantTestPlanner {
       }
       if (count !== mutants.length) {
         //this.logger.error(JSON.stringify(mutants.map((x) => x.mutant.id)));
-        this.logger.error(`Imported mutant groups are lacking some mutants, expected ${mutants.length} but got ${count}`);
+        this.logger.warn(`Imported mutant groups are lacking some mutants, expected ${mutants.length} but got ${count}`);
         //throw new Error(`Imported mutant groups are lacking some mutants, expected ${mutants.length} but got ${count}`);
       }
       return result;

@@ -3,7 +3,7 @@ import { notEmpty } from '@stryker-mutator/util';
 import { BehaviorSubject, filter, ignoreElements, lastValueFrom, mergeMap, Observable, ReplaySubject, Subject, takeUntil, tap, zip } from 'rxjs';
 import { Disposable, tokens } from 'typed-inject';
 
-import { CheckerAndTestRunnerPoolMetrics } from '@stryker-mutator/api/metrics';
+import { Metrics } from '@stryker-mutator/api/metrics';
 
 import { CheckerFacade } from '../checker/index.js';
 import { coreTokens } from '../di/index.js';
@@ -113,7 +113,7 @@ export class Pool<TResource extends Resource> implements Disposable {
             // Don't create new resources when disposed
             return;
           }
-          const measurement = type ? CheckerAndTestRunnerPoolMetrics.timeResource(type) : undefined;
+          const measurement = type ? Metrics.label(type) : undefined;
           const resource = factory();
           this.createdResources.push(resource);
           await resource.init?.();

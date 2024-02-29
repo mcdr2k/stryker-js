@@ -12,7 +12,7 @@ import {
 import log4js from 'log4js';
 import { ExpirableTask } from '@stryker-mutator/util';
 
-import { Metrics } from '@stryker-mutator/api/metrics';
+import { Metrics, MutantMetrics } from '@stryker-mutator/api/metrics';
 
 import { LiverunTimeoutError } from '../errors.js';
 
@@ -39,14 +39,14 @@ export class TimeoutDecorator extends TestRunnerDecorator {
     const result = await this.run(options, options.activeMutant.id, () => super.mutantRun(options));
     const metrics = Metrics.metricsFor(options.activeMutant.id);
     if (result === ExpirableTask.TimeoutExpired) {
-      return captureTestRunBeginMs(
+      return captureTestSessionMetrics(
         {
           status: MutantRunStatus.Timeout,
         },
         metrics,
       );
     } else {
-      return captureTestRunBeginMs(result, metrics);
+      return captureTestSessionMetrics(result, metrics);
     }
   }
 
@@ -72,7 +72,7 @@ export class TimeoutDecorator extends TestRunnerDecorator {
     if (result === ExpirableTask.TimeoutExpired) {
       if (options.mutantRunOptions.length === 1) {
         await this.handleTimeout(options.groupId);
-        return captureTestRunBeginMs(
+        return captureTestSessionMetrics(
           {
             status: SimultaneousMutantRunStatus.Complete,
             results: [{ status: MutantRunStatus.Timeout }],
@@ -98,7 +98,7 @@ export class TimeoutDecorator extends TestRunnerDecorator {
       await this.handleTimeout(options.groupId);
       if (partialResults) {
         //return this.simpleDecomposedSimultaneousMutantRun(options, group, partialResults);
-        return captureTestRunBeginMs(partialResults, metrics);
+        return captureTestSessionMetrics(partialResults, metrics);
       }
       // simultaneous testing is essentially useless if the test-runner is unable to formulate an early result
       // we have no clue here which test timed out and which tests had already been run, this is terrible for performance
@@ -110,7 +110,7 @@ export class TimeoutDecorator extends TestRunnerDecorator {
         }),
       };
     } else {
-      return captureTestRunBeginMs(result, metrics);
+      return captureTestSessionMetrics(result, metrics);
     }
   }
 
@@ -145,10 +145,20 @@ export class TimeoutDecorator extends TestRunnerDecorator {
   }
 }
 
-function captureTestRunBeginMs<T extends object>(from: T, metrics: Metrics) {
+// Stryker disable all
+function captureTestSessionMetrics<T extends object>(from: T, metrics: MutantMetrics) {
   const testSession = metrics.getRunningTestSession();
-  if (typeof from === 'object' && 'testRunBeginMs' in from && from.testRunBeginMs) {
-    testSession.setTestRunBeginMs(from.testRunBeginMs as number);
+  if (typeof from === 'object') {
+    if ('testRunBeginMs' in from && from.testRunBeginMs) {
+      testSession.setTestRunBeginMs(from.testRunBeginMs as number);
+    }
+    if ('startToMutantRunResult' in from) {
+      testSession.setStartFormulateResult(from.startToMutantRunResult as number);
+    }
+    if ('endToMutantRunResult' in from) {
+      testSession.setEndFormulateResult(from.endToMutantRunResult as number);
+    }
   }
   return from;
 }
+// Stryker restore all

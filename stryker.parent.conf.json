@@ -3,14 +3,13 @@
   "coverageAnalysis": "perTest",
   "testRunner": "mocha",
   "measureMetrics": false,
-  "enableSimultaneousTesting": true,
+  "enableSimultaneousTesting": false,
   "disableBail": false,
-  "fileLogLevel": "trace",
+  "fileLogLevel": "info",
   "reporters": [
     "json",
     "progress",
-    "html",
-    "dashboard"
+    "html"
   ],  
   "plugins": [
     "../mocha-runner/dist/src/index.js",

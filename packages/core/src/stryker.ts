@@ -4,7 +4,7 @@ import { MutantResult, PartialStrykerOptions } from '@stryker-mutator/api/core';
 import { createInjector } from 'typed-inject';
 import { commonTokens } from '@stryker-mutator/api/plugin';
 
-import { ArbitraryMetrics, Measurement, Metrics, getCombinedMetricsData } from '@stryker-mutator/api/metrics';
+import { Measurement, Metrics } from '@stryker-mutator/api/metrics';
 
 import { LogConfigurator } from './logging/index.js';
 import { PrepareExecutor, MutantInstrumenterExecutor, DryRunExecutor, MutationTestExecutor } from './process/index.js';
@@ -31,38 +31,36 @@ export class Stryker {
     const loggerProvider = provideLogger(rootInjector);
     let measurement: Measurement | undefined = undefined;
     try {
-      // cannot measure before setting the proper options
-      //measurement = ArbitraryMetrics.measure(Stryker.name, 'prepare');
+      measurement = Metrics.measureFunction(Stryker.name, 'prepare');
       // 1. Prepare. Load Stryker configuration, load the input files and starts the logging server
       const prepareExecutor = loggerProvider.injectClass(PrepareExecutor);
       const mutantInstrumenterInjector = await prepareExecutor.execute(this.cliOptions);
-      //measurement.markEnd();
+      measurement.markEnd();
 
       const options = mutantInstrumenterInjector.resolve(commonTokens.options);
       Metrics.measureMetrics = options.measureMetrics;
 
       try {
         // 2. Mutate and instrument the files and write to the sandbox.
-        measurement = ArbitraryMetrics.measure(Stryker.name, 'mutate-and-instrument');
+        measurement = Metrics.measureFunction(Stryker.name, 'mutate-and-instrument');
         const mutantInstrumenter = mutantInstrumenterInjector.injectClass(MutantInstrumenterExecutor);
         const dryRunExecutorInjector = await mutantInstrumenter.execute();
         measurement.markEnd();
 
         // 3. Perform a 'dry run' (initial test run). Runs the tests without active mutants and collects coverage.
-        measurement = ArbitraryMetrics.measure(Stryker.name, 'dry-run');
+        measurement = Metrics.measureFunction(Stryker.name, 'dry-run');
         const dryRunExecutor = dryRunExecutorInjector.injectClass(DryRunExecutor);
         const mutationRunExecutorInjector = await dryRunExecutor.execute();
         measurement.markEnd();
 
         // 4. Actual mutation testing. Will check every mutant and if valid run it in an available test runner.
-        measurement = ArbitraryMetrics.measure(Stryker.name, 'mutation-testing');
+        measurement = Metrics.measureFunction(Stryker.name, 'mutation-testing');
         const mutationRunExecutor = mutationRunExecutorInjector.injectClass(MutationTestExecutor);
         const mutantResults = await mutationRunExecutor.execute();
         measurement.markEnd();
 
         if (options.measureMetrics) {
-          const fullData = getCombinedMetricsData();
-          fs.writeFileSync(options.measureMetricsOutputFile, JSON.stringify(fullData, null, 2), 'utf8');
+          fs.writeFileSync(options.measureMetricsOutputFile, Metrics.exportData(), 'utf8');
         }
 
         return mutantResults;
