@@ -14,7 +14,7 @@ import {
   determineHitLimitReached,
   TestRunnerCapabilities,
   MutantActivation,
-  SingularTestRunner,
+  TestRunner,
 } from '@stryker-mutator/api/test-runner';
 import { errorToString } from '@stryker-mutator/util';
 import jasmine from 'jasmine';
@@ -39,14 +39,13 @@ export function createJasmineTestRunnerFactory(
 
 export const createJasmineTestRunner = createJasmineTestRunnerFactory();
 
-export class JasmineTestRunner extends SingularTestRunner {
+export class JasmineTestRunner implements TestRunner {
   private readonly jasmineConfigFile: string | undefined;
   private readonly Date: typeof Date = Date; // take Date prototype now we still can (user might choose to mock it away)
   private readonly instrumenterContext: InstrumenterContextWrapper;
 
   public static inject = tokens(commonTokens.options, pluginTokens.globalNamespace);
   constructor(options: StrykerOptions, globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__') {
-    super();
     this.jasmineConfigFile = (options as JasmineRunnerOptions).jasmineConfigFile;
     this.instrumenterContext = InstrumenterContextWrapper.WrapGlobalContext(globalNamespace);
   }

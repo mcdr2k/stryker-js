@@ -7,7 +7,6 @@ import {
   MutantRunStatus,
   SimultaneousMutantRunOptions,
   SimultaneousMutantRunResult,
-  SimultaneousMutantRunStatus,
 } from '@stryker-mutator/api/test-runner';
 import log4js from 'log4js';
 import { ExpirableTask } from '@stryker-mutator/util';
@@ -63,54 +62,6 @@ export class TimeoutDecorator extends TestRunnerDecorator {
       return result;
     } else {
       return result;
-    }
-  }
-
-  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    const result = await this.run(options, options.groupId, () => super.simultaneousMutantRun(options), false);
-    const metrics = Metrics.metricsFor(options.groupId);
-    if (result === ExpirableTask.TimeoutExpired) {
-      if (options.mutantRunOptions.length === 1) {
-        await this.handleTimeout(options.groupId);
-        return captureTestSessionMetrics(
-          {
-            status: SimultaneousMutantRunStatus.Complete,
-            results: [{ status: MutantRunStatus.Timeout }],
-          },
-          metrics,
-        );
-      }
-
-      if (this.log.isTraceEnabled()) {
-        this.log.trace(`Mutant group (${options.groupId}) timed out.`);
-      }
-      // todo: will get stuck if the child process is in an infinite loop... (js is singlethreaded...)
-      let partialResults: SimultaneousMutantRunResult | undefined;
-      if (this.formulateEarlyResults) {
-        const maybePartialResults = await ExpirableTask.timeout(this.formulateEarlyResults(options.mutantRunOptions), 5000);
-        if (maybePartialResults === ExpirableTask.TimeoutExpired) {
-          this.log.info(`Retrieving partial results failed for group ${options.groupId}. Assumed actual timeout.`);
-        } else {
-          partialResults = maybePartialResults;
-          this.log.info(`Retrieved partial results successfully for group ${options.groupId}.`);
-        }
-      }
-      await this.handleTimeout(options.groupId);
-      if (partialResults) {
-        //return this.simpleDecomposedSimultaneousMutantRun(options, group, partialResults);
-        return captureTestSessionMetrics(partialResults, metrics);
-      }
-      // simultaneous testing is essentially useless if the test-runner is unable to formulate an early result
-      // we have no clue here which test timed out and which tests had already been run, this is terrible for performance
-      // as it requires us to rerun all mutants individually, including the timed out one (yielding double timeouts)
-      return {
-        status: SimultaneousMutantRunStatus.Partial,
-        partialResults: options.mutantRunOptions.map((_) => {
-          return { status: MutantRunStatus.Pending };
-        }),
-      };
-    } else {
-      return captureTestSessionMetrics(result, metrics);
     }
   }
 

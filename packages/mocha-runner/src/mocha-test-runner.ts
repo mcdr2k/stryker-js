@@ -14,15 +14,9 @@ import {
   determineHitLimitReached,
   TestRunnerCapabilities,
   MutantActivation,
-  SimultaneousTestRunner,
   SimultaneousMutantRunOptions,
-  SimultaneousMutantRunResult,
-  SimultaneousMutantRunStatus,
-  MutantRunStatus,
-  PartialSimultaneousMutantRunResult,
-  PendingMutantRunResult,
-  CompleteSimultaneousMutantRunResult,
   LiveTestRunReporter,
+  TestRunner,
 } from '@stryker-mutator/api/test-runner';
 
 import { Context, RootHookObject, Suite } from 'mocha';
@@ -35,7 +29,7 @@ import * as pluginTokens from './plugin-tokens.js';
 import { MochaOptionsLoader } from './mocha-options-loader.js';
 import { MochaAdapter } from './mocha-adapter.js';
 
-export class MochaTestRunner extends SimultaneousTestRunner {
+export class MochaTestRunner implements TestRunner {
   private mocha!: Mocha;
   private readonly instrumenterContext: InstrumenterContextWrapper;
   private originalGrep?: string;
@@ -56,7 +50,6 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     private readonly mochaAdapter: I<MochaAdapter>,
     globalNamespace: typeof INSTRUMENTER_CONSTANTS.NAMESPACE | '__stryker2__',
   ) {
-    super();
     StrykerMochaReporter.log = log;
     this.instrumenterContext = InstrumenterContextWrapper.WrapGlobalContext(globalNamespace);
     StrykerMochaReporter.instrumenterContext = this.instrumenterContext;
@@ -124,7 +117,7 @@ export class MochaTestRunner extends SimultaneousTestRunner {
     return runResult;
   }
 
-  public override async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation }: MutantRunOptions): Promise<MutantRunResult> {
+  public async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation }: MutantRunOptions): Promise<MutantRunResult> {
     StrykerMochaReporter.clearStatic();
     this.instrumenterContext.assignHitLimit(activeMutant.id, hitLimit);
     this.instrumenterContext.assignHitCount(activeMutant.id, 0);
@@ -218,184 +211,6 @@ export class MochaTestRunner extends SimultaneousTestRunner {
       suite.bail(bail);
       suite.suites.forEach((childSuite) => setBail(bail, childSuite));
     }
-  }
-
-  public override async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    this.instrumenterContext.clearHitLimits();
-    this.instrumenterContext.clearHitCounts();
-    let hasFilter = undefined;
-    const metaRegExps = [];
-    for (const option of options.mutantRunOptions) {
-      if (option.hitLimit) {
-        this.instrumenterContext.addHitLimit(option.activeMutant.id, option.hitLimit);
-        this.instrumenterContext.addHitCount(option.activeMutant.id);
-      }
-
-      if (option.testFilter) {
-        if (hasFilter === false) {
-          throw new Error('Impossible state: a simultaneous mutant before the current one did not define a test filter');
-        }
-        hasFilter = true;
-        metaRegExps.push(option.testFilter.map((testId) => `(^${escapeRegExp(testId)}$)`).join('|'));
-      } else if (hasFilter) {
-        // if this happens, all tests need to be executed; for now don't accept it at all
-        throw new Error('Impossible state: the simultaneous mutants combined do not all define a test filter');
-      }
-    }
-
-    if (hasFilter) {
-      this.mocha.grep(new RegExp(metaRegExps.join('|')));
-    } else {
-      this.setIfDefined(this.originalGrep, this.mocha.grep);
-    }
-
-    StrykerMochaReporter.mutantRunOptions = options.mutantRunOptions;
-    StrykerMochaReporter.bail = !options.disableBail;
-
-    return this.simultaneousRun(
-      options.mutantRunOptions.length <= 1 ? options.disableBail : true,
-      options.mutantRunOptions,
-      options.mutantActivation,
-    );
-  }
-
-  private async simultaneousRun(
-    disableBail: boolean,
-    mutantRunOptions: MutantRunOptions[],
-    mutantActivation: MutantActivation,
-  ): Promise<SimultaneousMutantRunResult> {
-    if (mutantRunOptions.length > 1) {
-      // cannot set bail on the suites with simultaneous mutants, we need to do that ourselves
-      setBail(false, this.mocha.suite);
-    } else {
-      setBail(!disableBail, this.mocha.suite);
-    }
-    const activeMutantIds = mutantRunOptions.map((o) => o.activeMutant.id);
-    try {
-      if (!this.loadedEnv) {
-        if (activeMutantIds.length === 1 && mutantActivation === 'static') {
-          this.instrumenterContext.setActiveMutants(activeMutantIds[0]);
-        } else if (activeMutantIds.length > 1 && mutantActivation === 'static') {
-          throw new Error('Impossible state: multiple static mutants');
-        } else {
-          this.instrumenterContext.activeMutants = undefined;
-        }
-        // Loading files Async is needed to support native esm modules
-        // See https://mochajs.org/api/mocha#loadFilesAsync
-        await this.mocha.loadFilesAsync();
-        this.loadedEnv = true;
-      }
-
-      this.instrumenterContext.activeMutants = activeMutantIds.length > 0 ? new Set(activeMutantIds) : undefined;
-      await this.runMocha();
-
-      const completeResult = await this.formulateEarlyResults(mutantRunOptions);
-      return completeResult;
-    } catch (errorMessage: any) {
-      return {
-        status: SimultaneousMutantRunStatus.Error,
-        errorMessage,
-      };
-    }
-
-    function setBail(bail: boolean, suite: Suite) {
-      suite.bail(bail);
-      suite.suites.forEach((childSuite) => setBail(bail, childSuite));
-    }
-  }
-
-  public async formulateEarlyResults(
-    mutantRunOptions: MutantRunOptions[],
-  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult> {
-    const reporter = StrykerMochaReporter.currentInstance;
-    if (reporter) {
-      let result: SimultaneousMutantRunResult;
-      if (reporter.isDone()) {
-        result = this.formulateSimultaneousResults(mutantRunOptions, reporter, this.instrumenterContext);
-      } else {
-        result = this.formulatePartialResults(mutantRunOptions, reporter, this.instrumenterContext);
-      }
-      (result as any).testRunBeginMs = reporter.testRunBeginMs;
-      return result;
-    } else {
-      const errorMessage = `Mocha didn't instantiate the ${StrykerMochaReporter.name} correctly. Test result cannot be reported.`;
-      this.log.error(errorMessage);
-      return {
-        status: SimultaneousMutantRunStatus.Error,
-        errorMessage,
-      };
-    }
-  }
-
-  private formulateSimultaneousResults(
-    mutantRunOptions: MutantRunOptions[],
-    { tests }: I<StrykerMochaReporter>,
-    context: InstrumenterContextWrapper,
-  ): CompleteSimultaneousMutantRunResult {
-    const dryRunResults = [];
-    for (const mutant of mutantRunOptions) {
-      const { id } = mutant.activeMutant;
-      const timeoutResult = determineHitLimitReached(context.getHitCount(id), context.getHitLimit(id));
-      if (timeoutResult) {
-        dryRunResults.push(timeoutResult);
-      } else {
-        const result: CompleteDryRunResult = {
-          status: DryRunStatus.Complete,
-          tests: mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.name)) : tests,
-        };
-        dryRunResults.push(result);
-      }
-    }
-    return {
-      status: SimultaneousMutantRunStatus.Complete,
-      results: dryRunResults.map((dry) => toMutantRunResult(dry)),
-    };
-  }
-
-  private formulatePartialResults(
-    mutantRunOptions: MutantRunOptions[],
-    { tests, mutantIdToStatus, pendingCount, pendingTest, testTitleToMutantId }: I<StrykerMochaReporter>,
-    context: InstrumenterContextWrapper,
-  ): PartialSimultaneousMutantRunResult {
-    const partialResults: Array<MutantRunResult | PendingMutantRunResult> = [];
-    for (const mutant of mutantRunOptions) {
-      const { id } = mutant.activeMutant;
-      const timeoutResult = determineHitLimitReached(context.getHitCount(id), context.getHitLimit(id));
-      if (timeoutResult) {
-        partialResults.push(toMutantRunResult(timeoutResult));
-      } else {
-        // todo: verify
-        // need to know if test filter is based on (full) title or the actual unique identifier of a test
-        const relatedTests = mutant.testFilter ? tests.filter((t) => mutant.testFilter!.includes(t.name)) : tests;
-        const actualTestedLength = mutant.testFilter ? mutant.testFilter.length : tests.length;
-        const status = mutantIdToStatus.get(id);
-        if (relatedTests.length === actualTestedLength) {
-          partialResults.push(toMutantRunResult({ status: DryRunStatus.Complete, tests: relatedTests }));
-        } else if (status && status !== MutantRunStatus.Pending) {
-          // could not finish all tests for this mutant, but was able to form a result
-          // todo: if bail is disabled we should not stop here?
-          partialResults.push(toMutantRunResult({ status: DryRunStatus.Complete, tests: relatedTests }));
-        } else {
-          // could not finish all tests for this mutant, check if it is the one that caused the timeout
-          let result: MutantRunResult | PendingMutantRunResult;
-          if (pendingCount !== 0) {
-            const cachePendingTest = pendingTest;
-            if (cachePendingTest && testTitleToMutantId.get(cachePendingTest.fullTitle()) === id) {
-              result = { status: MutantRunStatus.Timeout, reason: `Test '${cachePendingTest.fullTitle()}' timed out` };
-            } else {
-              result = { status: MutantRunStatus.Pending };
-            }
-          } else {
-            result = { status: MutantRunStatus.Pending };
-          }
-          partialResults.push(result);
-        }
-      }
-    }
-    return {
-      status: SimultaneousMutantRunStatus.Partial,
-      partialResults: partialResults,
-    };
   }
 
   public async run(disableBail: boolean, activeMutantId?: string, mutantActivation?: MutantActivation): Promise<DryRunResult> {

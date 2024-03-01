@@ -11,7 +11,6 @@ import {
   TestRunner,
   SimultaneousMutantRunOptions,
   SimultaneousMutantRunResult,
-  PartialSimultaneousMutantRunResult,
   SimultaneousMutantRunStatus,
   MutantRunStatus,
   PendingMutantRunResult,
@@ -87,15 +86,6 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
   }
   public mutantRun(options: MutantRunOptions): Promise<MutantRunResult> {
     return this.worker.proxy.mutantRun(options);
-  }
-  public simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    return this.worker.proxy.simultaneousMutantRun(options);
-  }
-
-  public async formulateEarlyResults(
-    mutantRunOptions: MutantRunOptions[],
-  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined> {
-    return this.worker.proxy.formulateEarlyResults?.(mutantRunOptions);
   }
 
   // Stryker disable all

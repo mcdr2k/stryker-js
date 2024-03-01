@@ -200,8 +200,6 @@ export function testRunner(index = 0): sinon.SinonStubbedInstance<Required<TestR
     init: sinon.stub(),
     dryRun: sinon.stub(),
     mutantRun: sinon.stub(),
-    simultaneousMutantRun: sinon.stub(),
-    formulateEarlyResults: sinon.stub(),
     strykerLiveMutantRun: sinon.stub(),
     liveMutantRun: sinon.stub(),
     dispose: sinon.stub(),

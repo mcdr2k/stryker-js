@@ -12,7 +12,7 @@ import {
   CompleteDryRunResult,
   toMutantRunResult,
   TestRunnerCapabilities,
-  SingularTestRunner,
+  TestRunner,
 } from '@stryker-mutator/api/test-runner';
 import { errorToString } from '@stryker-mutator/util';
 
@@ -25,7 +25,7 @@ import { Timer } from '../utils/timer.js';
  * instead, it mimics a simple test result based on the exit code.
  * The command can be configured, but defaults to `npm test`.
  */
-export class CommandTestRunner extends SingularTestRunner {
+export class CommandTestRunner implements TestRunner {
   /**
    * "command"
    */
@@ -47,7 +47,6 @@ export class CommandTestRunner extends SingularTestRunner {
     private readonly workingDir: string,
     options: StrykerOptions,
   ) {
-    super();
     this.settings = options.commandRunner;
   }
 

@@ -10,7 +10,7 @@ import {
   toMutantRunResult,
   determineHitLimitReached,
   TestStatus,
-  SingularTestRunner,
+  TestRunner,
 } from '@stryker-mutator/api/test-runner';
 import { escapeRegExp, notEmpty } from '@stryker-mutator/util';
 
@@ -21,7 +21,7 @@ import { VitestRunnerOptionsWithStrykerOptions } from './vitest-runner-options-w
 
 type StrykerNamespace = '__stryker__' | '__stryker2__';
 
-export class VitestTestRunner extends SingularTestRunner {
+export class VitestTestRunner implements TestRunner {
   public static inject = [commonTokens.options, commonTokens.logger, 'globalNamespace'] as const;
   private ctx?: Vitest;
   private readonly fileCommunicator: FileCommunicator;
@@ -32,7 +32,6 @@ export class VitestTestRunner extends SingularTestRunner {
     private readonly log: Logger,
     globalNamespace: StrykerNamespace,
   ) {
-    super();
     this.options = options as VitestRunnerOptionsWithStrykerOptions;
     this.fileCommunicator = new FileCommunicator(globalNamespace);
   }

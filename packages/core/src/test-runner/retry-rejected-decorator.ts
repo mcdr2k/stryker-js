@@ -56,23 +56,6 @@ export class RetryRejectedDecorator extends TestRunnerDecorator {
     }
   }
 
-  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    const result = await Metrics.metricsFor(options.groupId).timeAwaitedFunction(
-      () => this.run(() => super.simultaneousMutantRun(options)),
-      RetryRejectedDecorator.name,
-      this.simultaneousMutantRun.name,
-    );
-
-    if (typeof result === 'string') {
-      return {
-        status: SimultaneousMutantRunStatus.Error,
-        errorMessage: result,
-      };
-    } else {
-      return result;
-    }
-  }
-
   public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult | undefined> {
     const result = await Metrics.metricsFor(options.groupId).timeAwaitedFunction(
       () => this.run(() => super.strykerLiveMutantRun(options)),

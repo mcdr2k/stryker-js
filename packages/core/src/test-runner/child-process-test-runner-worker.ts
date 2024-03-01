@@ -10,9 +10,6 @@ import {
   MutantRunStatus,
   TestRunnerCapabilities,
   SimultaneousMutantRunOptions,
-  SimultaneousMutantRunResult,
-  SimultaneousMutantRunStatus,
-  PartialSimultaneousMutantRunResult,
   PendingMutantRunResult,
   LiveTestRunReporter,
   TestResult,
@@ -76,22 +73,6 @@ export class ChildProcessTestRunnerWorker implements TestRunner {
     if (result.status === MutantRunStatus.Error) {
       result.errorMessage = errorToString(result.errorMessage);
     }
-  }
-
-  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
-    const result = await this.underlyingTestRunner.simultaneousMutantRun(options);
-    if (result.status === SimultaneousMutantRunStatus.Complete) {
-      result.results.map(ChildProcessTestRunnerWorker.properErrorMessage);
-    } else if (result.status === SimultaneousMutantRunStatus.Partial) {
-      result.partialResults.map(ChildProcessTestRunnerWorker.properErrorMessage);
-    }
-    return result;
-  }
-
-  public async formulateEarlyResults(
-    mutantRunOptions: MutantRunOptions[],
-  ): Promise<PartialSimultaneousMutantRunResult | SimultaneousMutantRunResult | undefined> {
-    return this.underlyingTestRunner.formulateEarlyResults?.(mutantRunOptions);
   }
 
   public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<undefined> {

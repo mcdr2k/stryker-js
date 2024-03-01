@@ -33,14 +33,14 @@ export class MaxTestRunnerReuseDecorator extends TestRunnerDecorator {
     return super.mutantRun(options);
   }
 
-  public async simultaneousMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
+  public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult | undefined> {
     this.runs++;
     if (this.restartAfter > 0 && this.runs > this.restartAfter) {
       await this.recover();
       this.runs = 1;
     }
 
-    return super.simultaneousMutantRun(options);
+    return super.strykerLiveMutantRun(options);
   }
 
   public dispose(): Promise<any> {
