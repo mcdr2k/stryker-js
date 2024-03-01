@@ -194,6 +194,11 @@ export class StrykerCli {
       .option('--importMutantGroupsFile <file>')
       .option('--measureMetrics')
       .option('--measureMetricsOutputFile <file>')
+      .option(
+        '--maximumGroupSize <n>',
+        'Sets the maximum size of the simultaneous mutant groups formed when simultaneous testing is enabled.',
+        parseInt,
+      )
       .showSuggestionAfterError()
       .parse(this.argv);
 

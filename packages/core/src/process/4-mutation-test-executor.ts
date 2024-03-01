@@ -140,7 +140,11 @@ export class MutationTestExecutor {
     } else if (this.shouldPerformSimultaneousMutationTesting(this.mutants.length)) {
       const coveredMutantArray = await lastValueFrom(coveredMutant$.pipe(toArray()));
       const measurePlanner = Metrics.measureFunction(MutationTestExecutor.name, MutantTestPlanner.name, this.planner.makeSimultaneousPlan.name);
-      const simultaneousMutantRunPlan = await this.planner.makeSimultaneousPlan(coveredMutantArray, this.dryRunResult.tests.length);
+      const simultaneousMutantRunPlan = await this.planner.makeSimultaneousPlan(
+        coveredMutantArray,
+        this.dryRunResult.tests.length,
+        this.options.maximumGroupSize,
+      );
       measurePlanner.markEnd();
       this.log.info(`Formed groups: ${simultaneousMutantRunPlan.map((x) => x.runOptions.groupId).join(' | ')}.`);
       const simultaneousMutantRunPlan$ = from(simultaneousMutantRunPlan);
@@ -447,10 +451,6 @@ export class MutationTestExecutor {
       this.log.info('Simultaneous testing is not performed because coverage analysis was "off"');
       return false;
     }
-    if (this.options.disableBail) {
-      this.log.info('Simultaneous testing is not performed because bail was disabled.');
-      return false;
-    }
     // todo: not necessarily a bad thing to still use simultaneous testing when there are few mutants
     if (mutantCount < MUTANT_COUNT_SIMULTANEOUS_TESTING_THRESHOLD) {
       this.log.info(
@@ -460,7 +460,13 @@ export class MutationTestExecutor {
     }
     // todo: some test frameworks cannot provide coverage data, then we cannot determine reachability between mutants
     // unclear how I should determine whether frameworks can provide coverage data
-    this.log.info('Simultaneous testing is being performed');
+    if (this.options.disableBail) {
+      this.log.info(
+        'Simultaneous testing is being perofmred with bail disabled. Note that disabling bail does not guarantee that test-runners continue to run all tests, especially in cases of timeouts.',
+      );
+    } else {
+      this.log.info('Simultaneous testing is being performed');
+    }
     return true;
   }
 }

@@ -527,6 +527,12 @@
       "type": "boolean",
       "default": false
     },
+    "maximumGroupSize": {
+      "description": "Sets the maximum size of the simultaneous mutant groups formed when simultaneous testing is enabled.",
+      "type": "integer",
+      "default": 0,
+      "minimum": 0
+    },
     "enableSimultaneousTesting" : {
       "description": "Enables mutation testing with simultaneous mutants. When true, runs all mutants in disjoint groups in terms of test coverage. This will increase performance but may decrease accurracy.",
       "type": "boolean",

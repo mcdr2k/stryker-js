@@ -5,7 +5,6 @@ import {
   SuccessTestResult,
   TestStatus,
   MutantRunOptions,
-  MutantRunStatus,
   SkippedTestResult,
   LiveTestRunReporter,
 } from '@stryker-mutator/api/test-runner';
@@ -42,6 +41,7 @@ export class StrykerMochaReporter {
   private readonly timer = new Timer();
   private passedCount = 0;
   private skippedCount = 0;
+  private testCount = 0;
 
   public tests: TestResult[] = [];
   public pendingCount = 0;
@@ -53,69 +53,48 @@ export class StrykerMochaReporter {
   public static instrumenterContext: InstrumenterContextWrapper;
   public static bail = true;
 
-  public readonly testTitleToMutantId = new Map<string, string>();
-  public readonly mutantIdToStatus = new Map<string, MutantRunStatus>();
   public testRunBeginMs = 0;
-  private isSimultaneousRun = false;
-  private done = false;
+  private readonly isSimultaneousRun: boolean;
 
   public static clearStatic(): void {
     StrykerMochaReporter.mutantRunOptions = undefined;
     StrykerMochaReporter.liveReporter = undefined;
   }
 
+  // Stryker disable all
   constructor(private readonly runner: NodeJS.EventEmitter) {
-    this.initData();
-    this.registerEvents();
+    this.isSimultaneousRun = StrykerMochaReporter.mutantRunOptions ? StrykerMochaReporter.mutantRunOptions.length > 1 : false;
+    if (StrykerMochaReporter.mutantRunOptions) {
+      this.registerSimultaneousEvents();
+    } else {
+      this.registerEvents();
+    }
     StrykerMochaReporter.currentInstance = this;
   }
+  // Stryker restore all
 
-  private initData() {
-    this.testTitleToMutantId.clear();
-    this.mutantIdToStatus.clear();
-    this.isSimultaneousRun = false;
-
-    if (StrykerMochaReporter.mutantRunOptions && StrykerMochaReporter.mutantRunOptions.length > 1) {
-      this.isSimultaneousRun = true;
-      const options = StrykerMochaReporter.mutantRunOptions;
-      for (const mutant of options) {
-        // assume testFilter exists, if it did not then this is an invalid simultaneous mutant anyway
-        mutant.testFilter!.map((t) => {
-          if (this.testTitleToMutantId.get(mutant.activeMutant.id))
-            StrykerMochaReporter.log?.warn(`Test '${t}' is already assigned to mutant '${mutant.activeMutant.id}'`);
-          this.testTitleToMutantId.set(t, mutant.activeMutant.id);
-        });
-        this.mutantIdToStatus.set(mutant.activeMutant.id, MutantRunStatus.Pending);
-      }
-    }
-  }
-
-  public isDone(): boolean {
-    return this.done;
-  }
-
-  private registerEvents() {
+  private registerSimultaneousEvents() {
     this.runner.on(EVENT_RUN_BEGIN, () => {
-      StrykerMochaReporter.liveReporter?.testRunStarted(StrykerMochaReporter.instrumenterContext);
-      this.done = false;
+      StrykerMochaReporter.liveReporter!.testRunStarted(StrykerMochaReporter.instrumenterContext);
       this.passedCount = 0;
       this.skippedCount = 0;
       this.pendingCount = 0;
+      this.testCount = 0;
       this.pendingTest = undefined;
       this.timer.reset();
-      this.tests = [];
+      this.tests = undefined!; // deliberate cheat, tests should not be used during simultaneous testing
       this.testRunBeginMs = Metrics.now();
-      StrykerMochaReporter.log?.debug('Starting Mocha test run');
+      StrykerMochaReporter.log!.debug('Starting Mocha test run');
     });
 
-    // only subscribe to SUITE_BEGIN when simultaneous testing with bail enabled
+    // only subscribe to SUITE_BEGIN when simultaneous testing (>1 mutant) with bail enabled
     if (this.isSimultaneousRun && StrykerMochaReporter.bail) {
       this.runner.on(EVENT_SUITE_BEGIN, (suite: Mocha.Suite) => {
         // it is not possible to 'skip' a test that is already running (EVENT_TEST_BEGIN)
-        // so instead we do it from the suite
+        // so instead we do it from the suite. It does seem rather expensive to do this smart bail.
         // todo: do note that if a test kills a mutant within this suite, then we cannot 'skip' related tests from this suite anymore
         for (const test of suite.tests) {
-          if (StrykerMochaReporter.liveReporter?.shouldSkipTest(test.fullTitle())) {
+          if (StrykerMochaReporter.liveReporter!.shouldSkipTest(test.fullTitle())) {
             try {
               test.skip();
             } catch (e) {}
@@ -131,9 +110,11 @@ export class StrykerMochaReporter {
       this.timer.reset();
       this.pendingTest = test;
       this.pendingCount++;
-      StrykerMochaReporter.liveReporter?.startTest(test.fullTitle());
+
+      StrykerMochaReporter.liveReporter!.startTest(test.fullTitle());
+
       if (this.isSimultaneousRun && this.pendingCount > 1) {
-        StrykerMochaReporter.log?.fatal(`Multiple tests (${this.pendingCount}) were executed simultaneously, this is a problem!`);
+        StrykerMochaReporter.log!.fatal(`Multiple tests (${this.pendingCount}) were executed simultaneously, this is a problem!`);
       }
     });
 
@@ -143,67 +124,128 @@ export class StrykerMochaReporter {
     });
 
     this.runner.on(EVENT_TEST_PENDING, (test: Mocha.Test) => {
-      if (StrykerMochaReporter.log?.isTraceEnabled()) {
-        StrykerMochaReporter.log?.trace(`Test skipped: ${test.fullTitle()}.`);
-      }
-      const title = test.fullTitle();
-      const result: SkippedTestResult = {
-        id: title,
-        name: title,
-        status: TestStatus.Skipped,
-        timeSpentMs: 0,
-        fileName: test.file,
-      };
-      this.tests.push(result);
-      StrykerMochaReporter.liveReporter?.reportTestResult(result);
+      this.testCount++;
       this.skippedCount++;
+
+      const result: SkippedTestResult = this.createPendingResult(test);
+      StrykerMochaReporter.liveReporter!.reportTestResult(result);
+
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`Test skipped: ${test.fullTitle()}.`);
+      }
     });
 
     this.runner.on(EVENT_TEST_PASS, (test: Mocha.Test) => {
-      const title: string = test.fullTitle();
-      const result: SuccessTestResult = {
-        id: title,
-        name: title,
-        status: TestStatus.Success,
-        timeSpentMs: this.timer.elapsedMs(),
-        fileName: test.file,
-      };
-      StrykerMochaReporter.liveReporter?.reportTestResult(result);
-      this.tests.push(result);
+      this.testCount++;
       this.passedCount++;
+
+      const result: SuccessTestResult = this.createPassResult(test);
+      StrykerMochaReporter.liveReporter!.reportTestResult(result);
     });
 
     this.runner.on(EVENT_TEST_FAIL, (test: Mocha.Hook | Mocha.Test, err: Error) => {
-      const title = test.ctx?.currentTest?.fullTitle() ?? test.fullTitle();
-      const result: FailedTestResult = {
-        id: title,
-        failureMessage: (err.message || err.stack) ?? '<empty failure message>',
-        name: title,
-        status: TestStatus.Failed,
-        timeSpentMs: this.timer.elapsedMs(),
-      };
-      this.tests.push(result);
-      StrykerMochaReporter.liveReporter?.reportTestResult(result);
-      if (this.isSimultaneousRun) {
-        const mutantId = this.testTitleToMutantId.get(test.fullTitle());
-        if (mutantId) {
-          this.mutantIdToStatus.set(mutantId, MutantRunStatus.Killed);
-        }
-      }
-      if (StrykerMochaReporter.log?.isTraceEnabled()) {
-        StrykerMochaReporter.log?.trace(`Test failed: ${test.fullTitle()}. Error: ${err.message}`);
+      this.testCount++;
+
+      const result: FailedTestResult = this.createFailedResult(test, err);
+      StrykerMochaReporter.liveReporter!.reportTestResult(result);
+
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`Test failed: ${test.fullTitle()}. Error: ${err.message}`);
       }
     });
 
     this.runner.on(EVENT_RUN_END, () => {
-      StrykerMochaReporter.liveReporter?.testRunFinished();
-      this.done = true;
-      StrykerMochaReporter.log?.debug(
+      StrykerMochaReporter.liveReporter!.testRunFinished();
+      StrykerMochaReporter.log!.debug(
+        'Mocha test run completed: %s/%s passed (skipped %s)',
+        this.passedCount,
+        this.testCount - this.skippedCount,
+        this.skippedCount,
+      );
+    });
+  }
+
+  private registerEvents() {
+    this.runner.on(EVENT_RUN_BEGIN, () => {
+      this.passedCount = 0;
+      this.skippedCount = 0;
+      this.timer.reset();
+      this.tests = [];
+      this.testRunBeginMs = Metrics.now();
+      StrykerMochaReporter.log!.debug('Starting Mocha test run');
+    });
+
+    this.runner.on(EVENT_TEST_BEGIN, (_test: Mocha.Test) => {
+      this.timer.reset();
+    });
+
+    this.runner.on(EVENT_TEST_PENDING, (test: Mocha.Test) => {
+      this.skippedCount++;
+
+      const result: SkippedTestResult = this.createPendingResult(test);
+      this.tests.push(result);
+
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`Test skipped: ${test.fullTitle()}.`);
+      }
+    });
+
+    this.runner.on(EVENT_TEST_PASS, (test: Mocha.Test) => {
+      this.passedCount++;
+
+      const result: SuccessTestResult = this.createPassResult(test);
+      this.tests.push(result);
+    });
+
+    this.runner.on(EVENT_TEST_FAIL, (test: Mocha.Hook | Mocha.Test, err: Error) => {
+      const result: FailedTestResult = this.createFailedResult(test, err);
+      this.tests.push(result);
+
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`Test failed: ${test.fullTitle()}. Error: ${err.message}`);
+      }
+    });
+
+    this.runner.on(EVENT_RUN_END, () => {
+      StrykerMochaReporter.log!.debug(
         'Mocha test run completed: %s/%s passed (skipped %s)',
         this.passedCount,
         this.tests.length - this.skippedCount,
         this.skippedCount,
       );
     });
+  }
+
+  private createPendingResult(test: Mocha.Test): SkippedTestResult {
+    const title = test.fullTitle();
+    return {
+      id: title,
+      name: title,
+      status: TestStatus.Skipped,
+      timeSpentMs: 0,
+      fileName: test.file,
+    };
+  }
+
+  private createPassResult(test: Mocha.Test): SuccessTestResult {
+    const title = test.fullTitle();
+    return {
+      id: title,
+      name: title,
+      status: TestStatus.Success,
+      timeSpentMs: this.timer.elapsedMs(),
+      fileName: test.file,
+    };
+  }
+
+  private createFailedResult(test: Mocha.Hook | Mocha.Test, err: Error): FailedTestResult {
+    const title = test.ctx?.currentTest?.fullTitle() ?? test.fullTitle();
+    return {
+      id: title,
+      failureMessage: (err.message || err.stack) ?? '<empty failure message>',
+      name: title,
+      status: TestStatus.Failed,
+      timeSpentMs: this.timer.elapsedMs(),
+    };
   }
 }

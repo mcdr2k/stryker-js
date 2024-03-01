@@ -173,9 +173,6 @@ export class ChildProcessProxy<T> extends EventEmitter implements Disposable {
   private listenForMessages() {
     this.worker.on('message', (serializedMessage: string) => {
       const message = deserialize<ParentMessage>(serializedMessage);
-      if (this.log.isTraceEnabled()) {
-        this.log.trace(`Received message: ${JSON.stringify(message)}.`);
-      }
       switch (message.kind) {
         case ParentMessageKind.Ready:
           // Workaround, because of a race condition more prominent in native ESM node modules

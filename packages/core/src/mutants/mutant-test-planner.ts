@@ -73,7 +73,11 @@ export class MutantTestPlanner {
     return mutantPlans;
   }
 
-  public async makeSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number): Promise<SimultaneousMutantRunPlan[]> {
+  public async makeSimultaneousPlan(
+    mutants: readonly MutantRunPlan[],
+    testCount: number,
+    maximumGroupSize: number,
+  ): Promise<SimultaneousMutantRunPlan[]> {
     // return mutants.map(MutantTestPlanner.planSingleSimultaneousMutant);
     if (this.options.importMutantGroups) {
       this.logger.info(`Attempting to create simultaneous mutant run plans from the import file ${this.options.importMutantGroupsFile}.`);
@@ -104,7 +108,7 @@ export class MutantTestPlanner {
       }
       return result;
     }
-    return this.makeSimpleSimultaneousPlan(mutants, testCount);
+    return this.makeSimpleSimultaneousPlan(mutants, testCount, maximumGroupSize);
   }
 
   /**
@@ -112,7 +116,7 @@ export class MutantTestPlanner {
    * mutants together. This is done by first sorting the mutants based on test size. This is an adaptation
    * from {@link https://github.com/stryker-mutator/stryker-net/blob/master/src/Stryker.Core/Stryker.Core/MutationTest/MutationTestProcess.cs#L190 Stryker.NET's algorithm}.
    */
-  private makeSimpleSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number): SimultaneousMutantRunPlan[] {
+  private makeSimpleSimultaneousPlan(mutants: readonly MutantRunPlan[], testCount: number, maximumGroupSize: number): SimultaneousMutantRunPlan[] {
     const startTime = performance.now();
 
     // static mutants, and mutants with no filter, cannot be grouped (assumption)
@@ -135,7 +139,7 @@ export class MutantTestPlanner {
       const simultaneousTestSet = mutantsToGroup[0].runOptions.testFilter!;
       const nextGroup = [mutantsToGroup[0]];
       mutantsToGroup.splice(0, 1);
-      for (let i = 0; i < mutantsToGroup.length; i++) {
+      for (let i = 0; i < mutantsToGroup.length && (maximumGroupSize === 0 || nextGroup.length < maximumGroupSize); i++) {
         const currentMutant = mutantsToGroup[i];
         const nextTestSet = currentMutant.runOptions.testFilter!;
         if (simultaneousTestSet.length + nextTestSet.length > testCount) break;

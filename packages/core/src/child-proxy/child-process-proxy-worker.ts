@@ -51,9 +51,6 @@ export class ChildProcessProxyWorker {
   private send(value: ParentMessage) {
     if (process.send) {
       const str = serialize(value);
-      if (this.log?.isTraceEnabled()) {
-        this.log.trace(`Sending message to parent: ${str}.`);
-      }
       process.send(str, undefined, { swallowErrors: false }, (error) => {
         if (error) this.log?.error(`Error sending message: ${JSON.stringify(error)}.`);
       });
