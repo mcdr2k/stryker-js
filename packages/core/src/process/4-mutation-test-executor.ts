@@ -124,7 +124,7 @@ export class MutationTestExecutor {
     if (this.options.exportMutantsOnly) {
       const coveredMutantArray = await lastValueFrom(coveredMutant$.pipe(toArray()));
 
-      const exportedData = coveredMutantArray.map((mutantRunPlan) => {
+      const exportedMutants = coveredMutantArray.map((mutantRunPlan) => {
         const { mutant } = mutantRunPlan;
         return {
           id: mutant.id,
@@ -135,7 +135,12 @@ export class MutationTestExecutor {
       this.log.info(
         `The dry-run has been completed successfully. The (valid & covered) mutants will be exported to the file ${this.options.exportMutantsFile}.`,
       );
-      fs.writeFileSync(this.options.exportMutantsFile, JSON.stringify(exportedData, null, 2), 'utf8');
+      const exportedData = JSON.stringify(
+        { smartBail: Boolean(this.capabilities.smartBail), fixedSize: 0, maximumSize: 0, mutants: exportedMutants },
+        null,
+        2,
+      );
+      fs.writeFileSync(this.options.exportMutantsFile, exportedData, 'utf8');
       return [];
     } else if (this.shouldPerformSimultaneousMutationTesting(this.mutants.length)) {
       const coveredMutantArray = await lastValueFrom(coveredMutant$.pipe(toArray()));

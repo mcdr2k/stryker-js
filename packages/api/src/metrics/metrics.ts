@@ -284,6 +284,17 @@ export class Metrics {
       (_key, value) => {
         if (value instanceof Map) {
           return Array.from(value.entries());
+        } else if (value instanceof RealMeasurement) {
+          const replacement = { ...value } as any;
+
+          for (const keyValue in replacement) {
+            if (keyValue.startsWith('_')) {
+              replacement[keyValue.substring(1)] = replacement[keyValue];
+              delete replacement[keyValue];
+            }
+          }
+
+          return replacement;
         } else {
           return value;
         }
