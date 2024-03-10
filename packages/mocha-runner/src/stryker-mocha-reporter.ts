@@ -44,8 +44,7 @@ export class StrykerMochaReporter {
   private testCount = 0;
 
   public tests: TestResult[] = [];
-  public pendingCount = 0;
-  public pendingTest: Mocha.Test | undefined;
+  public pendingTests: Mocha.Test[] = [];
 
   public static currentInstance: I<StrykerMochaReporter> | undefined;
   public static liveReporter: LiveTestRunReporter | undefined;
@@ -71,16 +70,14 @@ export class StrykerMochaReporter {
     }
     StrykerMochaReporter.currentInstance = this;
   }
-  // Stryker restore all
 
   private registerSimultaneousEvents() {
     this.runner.on(EVENT_RUN_BEGIN, () => {
       StrykerMochaReporter.liveReporter!.testRunStarted(StrykerMochaReporter.instrumenterContext);
       this.passedCount = 0;
       this.skippedCount = 0;
-      this.pendingCount = 0;
       this.testCount = 0;
-      this.pendingTest = undefined;
+      this.pendingTests = [];
       this.timer.reset();
       this.tests = undefined!; // deliberate cheat, tests should not be used during simultaneous testing
       this.testRunBeginMs = Metrics.now();
@@ -107,23 +104,44 @@ export class StrykerMochaReporter {
     // that way we can mitigate many(!) issues with dependencies between multiple mutants
     // could run into trouble if suites ('describes') also creates data
     this.runner.on(EVENT_TEST_BEGIN, (test: Mocha.Test) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_BEGIN: ${test.fullTitle()}.`);
+      }
       this.timer.reset();
-      this.pendingTest = test;
-      this.pendingCount++;
+      const pendingCount = this.pendingTests.push(test);
 
       StrykerMochaReporter.liveReporter!.startTest(test.fullTitle());
 
-      if (this.isSimultaneousRun && this.pendingCount > 1) {
-        StrykerMochaReporter.log!.fatal(`Multiple tests (${this.pendingCount}) were executed simultaneously, this is a problem!`);
+      if (pendingCount > 1) {
+        StrykerMochaReporter.log!.fatal(
+          `Multiple tests ([${this.pendingTests.map((t) => t.fullTitle())}]) were executed simultaneously for mutants ${Array.from(
+            StrykerMochaReporter.instrumenterContext.activeMutants!,
+          )}, this is a problem!`,
+        );
       }
     });
 
-    this.runner.on(EVENT_TEST_END, (_test: Mocha.Test) => {
-      this.pendingCount--;
-      this.pendingTest = undefined;
+    this.runner.on(EVENT_TEST_END, (test: Mocha.Test) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_END: ${test.fullTitle()}.`);
+      }
+      // ok: mocha has got to be the worst EVENT_TEST_END is sent without an EVENT_TEST_BEGIN for tests that are skipped (EVENT_TEST_PENDING)
+      // horrendous design: https://github.com/mochajs/mocha/issues/4079
+      const index = this.pendingTests.indexOf(test);
+      if (index >= 0) {
+        this.pendingTests.splice(index, 1);
+      } else {
+        // cry in mocha
+        // StrykerMochaReporter.log!.fatal(
+        //   `Test '${test.fullTitle()}' ended but was never pending (pending tests are: [${this.pendingTests.map((t) => t.fullTitle())}])`,
+        // );
+      }
     });
 
     this.runner.on(EVENT_TEST_PENDING, (test: Mocha.Test) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_PENDING: ${test.fullTitle()}.`);
+      }
       this.testCount++;
       this.skippedCount++;
 
@@ -136,6 +154,9 @@ export class StrykerMochaReporter {
     });
 
     this.runner.on(EVENT_TEST_PASS, (test: Mocha.Test) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_PASS: ${test.fullTitle()}.`);
+      }
       this.testCount++;
       this.passedCount++;
 
@@ -144,6 +165,9 @@ export class StrykerMochaReporter {
     });
 
     this.runner.on(EVENT_TEST_FAIL, (test: Mocha.Hook | Mocha.Test, err: Error) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_FAIL: ${test.fullTitle()}.`);
+      }
       this.testCount++;
 
       const result: FailedTestResult = this.createFailedResult(test, err);
@@ -164,6 +188,7 @@ export class StrykerMochaReporter {
       );
     });
   }
+  // Stryker restore all
 
   private registerEvents() {
     this.runner.on(EVENT_RUN_BEGIN, () => {

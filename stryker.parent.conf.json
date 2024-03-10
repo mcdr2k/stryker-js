@@ -3,9 +3,9 @@
   "coverageAnalysis": "perTest",
   "testRunner": "mocha",
   "measureMetrics": false,
-  "enableSimultaneousTesting": false,
+  "enableSimultaneousTesting": true,
   "disableBail": false,
-  "fileLogLevel": "info",
+  "fileLogLevel": "trace",
   "reporters": [
     "json",
     "progress",

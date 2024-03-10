@@ -3,7 +3,7 @@ import semver from 'semver';
 guardMinimalNodeVersion();
 
 import { Command } from 'commander';
-import { MutantResult, DashboardOptions, ALL_REPORT_TYPES, PartialStrykerOptions } from '@stryker-mutator/api/core';
+import { MutantResult, DashboardOptions, ALL_REPORT_TYPES, PartialStrykerOptions, JsonReporterOptions } from '@stryker-mutator/api/core';
 
 import { initializerFactory } from './initializer/index.js';
 import { LogConfigurator } from './logging/index.js';
@@ -51,6 +51,7 @@ export class StrykerCli {
 
   public run(): void {
     const dashboard: Partial<DashboardOptions> = {};
+    const jsonReporterOptions: Partial<JsonReporterOptions> = {};
     this.program
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       .version(strykerVersion)
@@ -199,6 +200,7 @@ export class StrykerCli {
         'Sets the maximum size of the simultaneous mutant groups formed when simultaneous testing is enabled.',
         parseInt,
       )
+      .option('--jsonReporterOptions.fileName <file>', 'description', deepOption(jsonReporterOptions, 'fileName'))
       .showSuggestionAfterError()
       .parse(this.argv);
 
@@ -209,7 +211,7 @@ export class StrykerCli {
     // Cleanup commander state
     delete options.version;
     Object.keys(options)
-      .filter((key) => key.startsWith('dashboard.'))
+      .filter((key) => key.startsWith('dashboard.') || key.startsWith('jsonReporterOptions.'))
       .forEach((key) => delete options[key]);
 
     if (this.strykerConfig) {
@@ -217,6 +219,9 @@ export class StrykerCli {
     }
     if (Object.keys(dashboard).length > 0) {
       options.dashboard = dashboard;
+    }
+    if (Object.keys(jsonReporterOptions).length > 0) {
+      options.jsonReporter = jsonReporterOptions;
     }
 
     const commands = {
