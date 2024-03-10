@@ -134,6 +134,7 @@ class ChildProcessLiveTestReporter implements LiveTestRunReporter {
   // todo: we can also send 'Survived' updates from this method, after the last test was executed (compare testFilter length)
   public reportTestResult(testResult: TestResult): boolean {
     // should have no need to check this as simultaneous testing should not be used anyway if bail is disabled
+
     if (this.options.disableBail) {
       this.log.error('Live reporting simultaneous mutant while bail is disabled');
     }

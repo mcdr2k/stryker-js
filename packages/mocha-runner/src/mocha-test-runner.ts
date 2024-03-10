@@ -182,12 +182,16 @@ export class MochaTestRunner implements TestRunner {
   }
 
   private async liveRun(disableBail: boolean, options: SimultaneousMutantRunOptions, mutantActivation: MutantActivation) {
+    // deliberate slowdown: disable bail by default, only support it through 'smartBail'
+    setBail(false, this.mocha.suite);
+    /*
     if (options.mutantRunOptions.length > 1) {
       // cannot set bail on the suites with simultaneous mutants, we need to do that ourselves
       setBail(false, this.mocha.suite);
     } else {
       setBail(!disableBail, this.mocha.suite);
     }
+    */
 
     if (!this.loadedEnv) {
       if (options.mutantRunOptions.length === 1 && mutantActivation === 'static') {

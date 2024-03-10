@@ -136,7 +136,7 @@ export class MutantTestPlanner {
     const mutantGroups = [];
     while (mutantsToGroup.length > 0) {
       // todo: what if coverage data is not available??
-      const simultaneousTestSet = mutantsToGroup[0].runOptions.testFilter!;
+      const simultaneousTestSet = [...mutantsToGroup[0].runOptions.testFilter!]; // deep copy
       const nextGroup = [mutantsToGroup[0]];
       mutantsToGroup.splice(0, 1);
       for (let i = 0; i < mutantsToGroup.length && (maximumGroupSize === 0 || nextGroup.length < maximumGroupSize); i++) {

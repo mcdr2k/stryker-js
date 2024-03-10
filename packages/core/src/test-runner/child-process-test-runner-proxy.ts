@@ -95,12 +95,14 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
    */
   public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
     const subject = new Subject<TestUpdate>();
+    let subjectCompleted = false;
     const listener = (message: CustomMessage) => {
       const testUpdateMessage = message as TestUpdateMessage;
       if (testUpdateMessage.update) {
         const testUpdate = testUpdateMessage.update;
         subject.next(testUpdate);
         if (testUpdate.type === TestUpdateType.Finished) {
+          subjectCompleted = true;
           subject.complete();
         }
       }
@@ -109,11 +111,25 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
       this.worker.on('custom-message', listener);
       // todo: dumping this return value would also mean we lose the errors that are thrown by this call
       void this.worker.proxy.strykerLiveMutantRun(options);
+
+      let timedOut = false;
+      /*
+      setTimeout(() => {
+        if (!subjectCompleted) {
+          subjectCompleted = true;
+          timedOut = true;
+          if (this.log.isInfoEnabled()) {
+            this.log.info(`Mutant group '[${options.groupId}]' timed out early (enforced).`);
+          }
+          subject.complete();
+        }
+      }, options.timeout);
+      */
       // todo: this timeout will come with different behavior.
       // it times out after the provided amount of time when no updates were received.
       // this is different from the timeout decorator because that sets a limit on the total time the tests may run
-      // inherently will take (a bit) longer
-      let timedOut = false;
+      // inherently will take longer
+
       const reports = await lastValueFrom(
         subject.pipe(
           timeout({ each: options.timeout }),
@@ -181,7 +197,17 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
     if (timedOut && lastPendingTest && !lastPendingTestResult && lastTestResult?.testResult.id !== lastPendingTest.test) {
       // very expensive to look for the culprit test, a whole bunch of string comparisons must be made
       timedoutMutantId = options.mutantRunOptions.find((m) => m.testFilter?.find((t) => t === lastPendingTest.test))?.activeMutant.id;
-      if (timedoutMutantId) this.log.debug(`Found timed out mutant ${timedoutMutantId} for group ${options.groupId}.`);
+      if (timedoutMutantId) {
+        this.log.info(`Found timed out mutant ${timedoutMutantId} for group ${options.groupId}.`);
+        const timedOutMutantRunOptions = options.mutantRunOptions.find((m) => m.activeMutant.id === timedoutMutantId)!;
+        this.log.info(`Timed out mutant's testFilter: [${timedOutMutantRunOptions.testFilter}]`);
+        options.mutantRunOptions
+          .filter((m) => m.activeMutant.id !== timedoutMutantId)
+          .forEach((m) => {
+            this.log.info(`Other mutant's testFilter from the same group (${m.activeMutant.id}): [${m.testFilter}]`);
+          });
+        this.log.info(`Pending test: ${JSON.stringify(lastPendingTest)}, Last test result: ${JSON.stringify(lastTestResult)}`);
+      }
     }
 
     //this.log.warn(`Group ${options.groupId} could not finish all mutants, possibly due to a timeout.`);

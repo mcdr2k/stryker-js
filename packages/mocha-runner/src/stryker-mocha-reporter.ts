@@ -53,7 +53,6 @@ export class StrykerMochaReporter {
   public static bail = true;
 
   public testRunBeginMs = 0;
-  private readonly isSimultaneousRun: boolean;
 
   public static clearStatic(): void {
     StrykerMochaReporter.mutantRunOptions = undefined;
@@ -62,7 +61,6 @@ export class StrykerMochaReporter {
 
   // Stryker disable all
   constructor(private readonly runner: NodeJS.EventEmitter) {
-    this.isSimultaneousRun = StrykerMochaReporter.mutantRunOptions ? StrykerMochaReporter.mutantRunOptions.length > 1 : false;
     if (StrykerMochaReporter.mutantRunOptions) {
       this.registerSimultaneousEvents();
     } else {
@@ -84,8 +82,7 @@ export class StrykerMochaReporter {
       StrykerMochaReporter.log!.debug('Starting Mocha test run');
     });
 
-    // only subscribe to SUITE_BEGIN when simultaneous testing (>1 mutant) with bail enabled
-    if (this.isSimultaneousRun && StrykerMochaReporter.bail) {
+    if (StrykerMochaReporter.bail) {
       this.runner.on(EVENT_SUITE_BEGIN, (suite: Mocha.Suite) => {
         // it is not possible to 'skip' a test that is already running (EVENT_TEST_BEGIN)
         // so instead we do it from the suite. It does seem rather expensive to do this smart bail.
