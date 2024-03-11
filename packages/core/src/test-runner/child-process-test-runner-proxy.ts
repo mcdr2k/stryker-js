@@ -199,15 +199,21 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
       timedoutMutantId = options.mutantRunOptions.find((m) => m.testFilter?.find((t) => t === lastPendingTest.test))?.activeMutant.id;
       if (timedoutMutantId) {
         this.log.info(`Found timed out mutant ${timedoutMutantId} for group ${options.groupId}.`);
-        const timedOutMutantRunOptions = options.mutantRunOptions.find((m) => m.activeMutant.id === timedoutMutantId)!;
-        this.log.info(`Timed out mutant's testFilter: [${timedOutMutantRunOptions.testFilter}]`);
-        options.mutantRunOptions
-          .filter((m) => m.activeMutant.id !== timedoutMutantId)
-          .forEach((m) => {
-            this.log.info(`Other mutant's testFilter from the same group (${m.activeMutant.id}): [${m.testFilter}]`);
-          });
-        this.log.info(`Pending test: ${JSON.stringify(lastPendingTest)}, Last test result: ${JSON.stringify(lastTestResult)}`);
+        // const timedOutMutantRunOptions = options.mutantRunOptions.find((m) => m.activeMutant.id === timedoutMutantId)!;
+        // this.log.info(`Timed out mutant's testFilter: [${timedOutMutantRunOptions.testFilter}]`);
+        // options.mutantRunOptions
+        //   .filter((m) => m.activeMutant.id !== timedoutMutantId)
+        //   .forEach((m) => {
+        //     this.log.info(`Other mutant's testFilter from the same group (${m.activeMutant.id}): [${m.testFilter}]`);
+        //   });
+        // this.log.info(`Pending test: ${JSON.stringify(lastPendingTest)}, Last test result: ${JSON.stringify(lastTestResult)}`);
       }
+    } else if (timedOut) {
+      this.log.error(
+        `Could not find the timed out test for mutant group '[${
+          options.groupId
+        }]', this is problematic for performance but this should not happen. Last pending test was: ${JSON.stringify(lastPendingTest)}`,
+      );
     }
 
     //this.log.warn(`Group ${options.groupId} could not finish all mutants, possibly due to a timeout.`);
