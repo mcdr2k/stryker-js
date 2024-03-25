@@ -197,11 +197,17 @@ export class StrykerMochaReporter {
       StrykerMochaReporter.log!.debug('Starting Mocha test run');
     });
 
-    this.runner.on(EVENT_TEST_BEGIN, (_test: Mocha.Test) => {
+    this.runner.on(EVENT_TEST_BEGIN, (test: Mocha.Test) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_BEGIN: ${test.fullTitle()}.`);
+      }
       this.timer.reset();
     });
 
     this.runner.on(EVENT_TEST_PENDING, (test: Mocha.Test) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_PENDING: ${test.fullTitle()}.`);
+      }
       this.skippedCount++;
 
       const result: SkippedTestResult = this.createPendingResult(test);
@@ -213,6 +219,9 @@ export class StrykerMochaReporter {
     });
 
     this.runner.on(EVENT_TEST_PASS, (test: Mocha.Test) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_PASS: ${test.fullTitle()}.`);
+      }
       this.passedCount++;
 
       const result: SuccessTestResult = this.createPassResult(test);
@@ -220,6 +229,9 @@ export class StrykerMochaReporter {
     });
 
     this.runner.on(EVENT_TEST_FAIL, (test: Mocha.Hook | Mocha.Test, err: Error) => {
+      if (StrykerMochaReporter.log!.isTraceEnabled()) {
+        StrykerMochaReporter.log!.trace(`TEST_FAIL: ${test.fullTitle()}.`);
+      }
       const result: FailedTestResult = this.createFailedResult(test, err);
       this.tests.push(result);
 

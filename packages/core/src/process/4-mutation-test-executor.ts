@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 
 import { from, partition, merge, Observable, lastValueFrom, EMPTY, concat, bufferTime, mergeMap } from 'rxjs';
-import { toArray, map, shareReplay, tap, mergeAll } from 'rxjs/operators';
+import { toArray, map, shareReplay, tap, mergeAll, filter } from 'rxjs/operators';
 import { tokens, commonTokens } from '@stryker-mutator/api/plugin';
 import {
   MutantResult,
@@ -157,7 +157,17 @@ export class MutationTestExecutor {
     } else {
       // todo: remove this, testing purposes only
       const coveredMutantDelayed = await lastValueFrom(coveredMutant$.pipe(toArray()));
-      testRunnerResult$ = this.executeRunInTestRunner(from(coveredMutantDelayed));
+      if (this.options.importMutantGroups) {
+        this.log.info(`Attempting to filter for mutants in the import file ${this.options.importMutantGroupsFile}.`);
+        const input = JSON.parse(fs.readFileSync(this.options.importMutantGroupsFile).toString());
+        const groups: string[][] = input.solverResult.solution;
+        const acceptableMutants: string[] = groups.flat();
+        testRunnerResult$ = this.executeRunInTestRunner(
+          from(coveredMutantDelayed).pipe(filter((mutant) => acceptableMutants.includes(mutant.mutant.id))),
+        );
+      } else {
+        testRunnerResult$ = this.executeRunInTestRunner(from(coveredMutantDelayed));
+      }
       // original code:
       //testRunnerResult$ = this.executeRunInTestRunner(coveredMutant$);
     }

@@ -22,5 +22,26 @@
   "disableTypeChecks": "{test,src,lib}/**/*.{js,ts,jsx,tsx,html,vue,cts,mts}",
   "mochaOptions": {
     "spec": ["dist/test/unit/**/*.js"]
-  }
+  },
+
+  "enableSimultaneousTesting": false,
+  "disableBail": false,
+  "ignoreStatic": true,
+  "measureMetrics": true,
+  "checkers": [],
+  "logLevel": "info",
+  "fileLogLevel": "off",
+  "coverageAnalysis": "perTest",
+  "testRunner": "mocha",
+  "reporters": [
+    "json",
+    "progress",
+    "html"
+  ],
+  "jsonReporter": {
+    "fileName": "reports/mutation.json"
+  },
+  "plugins": [
+    "/home/mcdr/stryker-js/packages/mocha-runner/dist/src/index.js"
+  ]
 }
