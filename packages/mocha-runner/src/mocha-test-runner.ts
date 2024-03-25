@@ -118,6 +118,12 @@ export class MochaTestRunner implements TestRunner {
   }
 
   public async mutantRun({ activeMutant, testFilter, disableBail, hitLimit, mutantActivation }: MutantRunOptions): Promise<MutantRunResult> {
+    if (this.options.fakeTestSessionCreationDuration > 0) {
+      function sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+      await sleep(this.options.fakeTestSessionCreationDuration);
+    }
     StrykerMochaReporter.clearStatic();
     this.instrumenterContext.assignHitLimit(activeMutant.id, hitLimit);
     this.instrumenterContext.assignHitCount(activeMutant.id, 0);
@@ -139,6 +145,12 @@ export class MochaTestRunner implements TestRunner {
   }
 
   public async liveMutantRun(options: SimultaneousMutantRunOptions, reporter: LiveTestRunReporter): Promise<void> {
+    if (this.options.fakeTestSessionCreationDuration > 0) {
+      function sleep(ms: number) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+      }
+      await sleep(this.options.fakeTestSessionCreationDuration);
+    }
     StrykerMochaReporter.clearStatic();
     this.instrumenterContext.clearHitLimits();
     this.instrumenterContext.clearHitCounts();

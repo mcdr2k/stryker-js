@@ -580,6 +580,11 @@
       "description": "Target file where the metrics should be exported to.",
       "type":"string",
       "default": "reports/metrics.json"
+    },
+    "fakeTestSessionCreationDuration": {
+      "description": "Artifically introduces work for creating a test session to increase the time spent creating test sessions.",
+      "type": "number",
+      "default": 0
     }
   }
 }

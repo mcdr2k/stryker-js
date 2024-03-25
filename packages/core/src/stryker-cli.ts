@@ -201,6 +201,7 @@ export class StrykerCli {
         parseInt,
       )
       .option('--jsonReporterOptions.fileName <file>', 'description', deepOption(jsonReporterOptions, 'fileName'))
+      .option('--fakeTestSessionCreationDuration <n>', 'Set the fake test session duration', parseInt)
       .showSuggestionAfterError()
       .parse(this.argv);
 

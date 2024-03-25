@@ -95,14 +95,14 @@ export class ChildProcessTestRunnerProxy implements TestRunner {
    */
   public async strykerLiveMutantRun(options: SimultaneousMutantRunOptions): Promise<SimultaneousMutantRunResult> {
     const subject = new Subject<TestUpdate>();
-    let subjectCompleted = false;
+    // let subjectCompleted = false;
     const listener = (message: CustomMessage) => {
       const testUpdateMessage = message as TestUpdateMessage;
       if (testUpdateMessage.update) {
         const testUpdate = testUpdateMessage.update;
         subject.next(testUpdate);
         if (testUpdate.type === TestUpdateType.Finished) {
-          subjectCompleted = true;
+          // subjectCompleted = true;
           subject.complete();
         }
       }

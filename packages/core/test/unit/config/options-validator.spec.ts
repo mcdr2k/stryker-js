@@ -107,6 +107,7 @@ describe(OptionsValidator.name, () => {
         measureMetricsOutputFile: 'reports/metrics.json',
         enableSimultaneousTesting: false,
         maximumGroupSize: 0,
+        fakeTestSessionCreationDuration: 0,
       };
       expect(options).deep.eq(expectedOptions);
     });
